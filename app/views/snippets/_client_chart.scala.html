@@ -1,0 +1,168 @@
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import util.charts._
+@import util.charts.client.ChartColumn.ColumnDataType._
+@import util.charts.client.ChartColumn.ColumnType._
+@import util.charts.client._
+@import util.charts.ChartWriter._
+@import Shared.Shared.gson
+@(
+    chartName: String, 
+    chart: util.charts.ClientChart
+)(implicit request: AuthenticatedRequest[Any])
+
+
+@import helper._
+@import play.api.libs.json._
+
+<div id="dashboard-div">
+	<div class="row">
+		<div class="col-lg-12">
+		    <div id="filter-div" class="panel panel-default">
+		        <div class="panel-heading">
+		            <i class="fa fa-tasks fa-fw"></i> Filters 
+		            <span class="pull-right" id="filter-reset-span">
+		                <input type="button" id="filter-reset-btn" class="btn btn-default btn-xs" value="Reset"/>
+		            </span>
+		        </div>
+		        <div class="panel-body">
+		            <div class="row">
+	                    @for(i <- 0 until chart.getColumns.length){
+                            <div class="col-lg-2" id="category-filter-div-@i"></div> 
+	                    }
+		            </div>
+		        </div>
+		    </div>
+	    </div>
+    </div>
+    <div class="row">
+    	<div class="col-lg-12">
+		    <div id="table-panel-div" class="panel panel-default">
+		        <div class="panel-heading">
+		            <i class="fa fa-bar-chart-o fa-fw"></i> @chartName<span class="pull-right" id="total-cnt">0 Results</span>
+		        </div>
+			    <div class="panel-body">
+			        <div id="table-div"></div>
+		    		<a class="pull-right" id="csv-export" href="#">Export as CSV</a>
+			    </div>
+		    </div>
+	    </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+"use strict";
+
+function buildData() {
+    var dataTable, rows, row;
+
+    dataTable = new google.visualization.DataTable();
+    @for(column <- chart.getVisibleColumns){
+        dataTable.addColumn('@column.dataType', '@column.header');
+    }
+
+    dataTable.addRows(@{Html(gson.toJson(chart.getData))}.data);
+    return dataTable;
+}
+
+// Create a google Table visualization.  Data is not required for the table, but it is for
+// The listeners, so that we can update fields like Total Count that rely on the data.
+function buildTable() {            
+    var pageSize = 20, table;
+    table = new google.visualization.ChartWrapper({
+        chartType: 'Table',
+        containerId: 'table-div',
+        options: {
+            width: '100%',
+            height: '100%',
+            showRowNumber: true,
+            page: 'enable',
+            pageSize: 20,
+            allowHtml: true,
+            pagingSymbols: {
+                prev: 'prev',
+                next: 'next'
+            }
+        }
+    });
+    
+    google.visualization.events.addListener(table, 'ready', function(){
+        document.getElementById('total-cnt').innerHTML = table.getDataTable().getNumberOfRows() + ' Result(s)'
+    });
+    
+    return table;
+}
+
+function buildCategoryFilters(){
+    var categoryFilters = [];
+    @for((column, i) <- chart.getColumns.zipWithIndex){
+        @if(column.isDimension && column.visible){
+            categoryFilters.push(buildCategoryFilter(@i, '@column.header'));
+        }
+    }
+
+    return categoryFilters;
+}
+
+function buildCategoryFilter(columnNum, label){
+    var filter = new google.visualization.ControlWrapper({
+        controlType: 'CategoryFilter',
+        containerId: 'category-filter-div-' + columnNum,
+        options: {
+            filterColumnIndex: columnNum,
+            ui: {
+                labelStacking: 'vertical',
+                label: label,
+                allowTyping: false,
+                allowMultiple: true,
+                selectedValuesLayout: 'belowWrapping'
+            }
+        }
+    });
+
+    google.visualization.events.addListener(filter, 'ready', function() {
+    	var filterItem = document.getElementById('category-filter-div-' + columnNum);
+    });
+
+    return filter;
+}
+
+google.load('visualization', '1', {'packages': ['corechart', 'table', 'timeline', 'gauge', 'controls']});
+google.setOnLoadCallback(function () {
+    var dashboard, data, table, columnHeaders, categoryFilters, colDataTable, colFilter;
+    dashboard = new google.visualization.Dashboard(
+        document.getElementById('dashboard-div')
+    );
+
+    // Construct data and table
+    data = buildData();
+    table = buildTable();
+
+    // Initialize the category filters for first draw
+    categoryFilters = buildCategoryFilters();
+    
+    // Bind filters to the table & do the initial draw
+    dashboard.bind(categoryFilters, table);
+    dashboard.draw(data);
+
+    $('#filter-reset-btn').on('click', function(){
+        for(var i = 0; i < categoryFilters.length; i++){
+            categoryFilters[i].setState({ selectedValues: [] });
+        }
+
+        dashboard.draw(data);
+    })
+
+    // CSV Export listener.
+    var export_link = document.getElementById("csv-export");
+    export_link.addEventListener('click', function(){
+        var csvDataTable = google.visualization.dataTableToCsv(table.getDataTable());
+        var encodedUri = 'data:application/csv;charset=utf-8,' + encodeURIComponent(csvDataTable);
+        this.href = encodedUri;
+        this.download = '@chartName' + '.csv';
+        this.target = '_blank';
+    }, false);
+
+});
+
+</script>

@@ -1,0 +1,11 @@
+@(
+    pending_cached_changes: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: play.api.mvc.Request[Any])
+@import Shared.Shared._
+
+@for(pending_change <- pending_cached_changes) {
+    <div class="alert @{ pending_change.changeType match { case ChangeType.NEW => "alert-info" case ChangeType.UPDATE => "alert-warning" case ChangeType.DELETE => "alert-error" }}  alert-dismissable">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+        @pending_change.changeType.toString @pending_change.changeCategory.toString - (@pending_change.id) Pending. <a href="/cancel-pending/@pending_change.id" class="alert-link">Cancel</a>.
+    </div>
+}

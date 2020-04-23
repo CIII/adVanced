@@ -1,0 +1,165 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    campaign_form: Form[helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignForm],
+    budget_cursor: List[com.google.api.ads.adwords.axis.v201609.cm.Budget],
+    cached_budget_list: List[helpers.google.mcc.account.BudgetControllerHelper.BudgetForm],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import com.google.api.ads.adwords.axis.v201609.cm._
+@import helper._
+
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - New Google Campaign", chart=false) {
+    @form(controllers.google.mcc.account.campaign.routes.CampaignController.createCampaign) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Google Campaign
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                        @inputText(campaign_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @select(
+                        campaign_form("status"),
+                        options("" :: List[String](CampaignStatus._ENABLED, CampaignStatus._REMOVED, CampaignStatus._PAUSED)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Status",
+                            'style -> "width:350px;",
+                            '_label -> "Status",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <div class="form-group">
+                        @inputText(campaign_form("startDate"), '_label -> "Start Date", 'class -> "form-control", '_showConstraints -> false)
+                        <p class="help-block">Expected format: YYYYMMDD. Default: current day</p>
+                    </div>
+                    <div class="form-group">
+                        @inputText(campaign_form("endDate"), '_label -> "End Date", 'class -> "form-control", '_showConstraints -> false)
+                        <p class="help-block">Expected format: YYYYMMDD. Default: 20371230</p>
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        campaign_form("budgetApiId"),
+                        options("" :: cached_budget_list.map(_.name) ::: budget_cursor.map(_.getName).toList),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Budget",
+                            'style -> "width:350px;",
+                            '_label -> "Budget",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        campaign_form("adServingOptimizationStatus"),
+                        options("" :: List[String](
+                            AdServingOptimizationStatus._CONVERSION_OPTIMIZE,
+                            AdServingOptimizationStatus._OPTIMIZE,
+                            AdServingOptimizationStatus._ROTATE,
+                            AdServingOptimizationStatus._ROTATE_INDEFINITELY,
+                            AdServingOptimizationStatus._UNAVAILABLE
+                        )),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Ad Serving Optimization Status",
+                            'style -> "width:350px;",
+                            '_label -> "Ad Serving Optimization Status",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        campaign_form("advertisingChannelType"),
+                        options("" :: List[String](AdvertisingChannelType._DISPLAY, AdvertisingChannelType._SEARCH, AdvertisingChannelType._SHOPPING, AdvertisingChannelType._UNKNOWN)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Advertising Channel Type",
+                            'style -> "width:350px;",
+                            '_label -> "Advertising Channel Type",
+                            '_showConstraints -> false,
+                            'disabled -> "disabled"
+                        ): _*
+                    )
+                    </div>
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            Frequency Cap
+                        </div>
+                            <!-- /.panel-heading -->
+                        <div class="panel-body">
+                            @inputText(campaign_form("frequencyCapImpressions"), '_label -> "Impressions", 'class -> "form-control", '_showConstraints -> false)
+                            @select(
+                                campaign_form("frequency_cap.time_unit"),
+                                options("" :: List[String](TimeUnit._DAY, TimeUnit._HOUR, TimeUnit._LIFETIME, TimeUnit._MINUTE, TimeUnit._MONTH, TimeUnit._WEEK)),
+                                args(
+                                    'class -> "chosen-select form-control",
+                                    Symbol("data-placeholder") -> "Set Time Unit",
+                                    'style -> "width:350px;",
+                                    '_label -> "Time Unit",
+                                    '_showConstraints -> false
+                                ): _*
+                            )
+                            @select(
+                                campaign_form("frequencyCapLevel"),
+                                options("" :: List[String](Level._ADGROUP, Level._CAMPAIGN, Level._CREATIVE, Level._UNKNOWN)),
+                                args(
+                                    'class -> "chosen-select form-control",
+                                    Symbol("data-placeholder") -> "Set Level",
+                                    'style -> "width:350px;",
+                                    '_label -> "Level",
+                                    '_showConstraints -> false
+                                ): _*
+                            )
+                        </div>
+                            <!-- /.panel-body -->
+                    </div>
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            Network Setting
+                        </div>
+                            <!-- /.panel-heading -->
+                        <div class="panel-body">
+                            <div class="checkbox">
+                                <label>
+                                    @checkbox(campaign_form("targetGoogleSearch"), '_label -> "", '_showConstraints -> false, 'class -> "form-control") Target Google Search
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    @checkbox(campaign_form("targetSearchNetwork"), '_label -> "", '_showConstraints -> false, 'class -> "form-control") Target Search Network
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    @checkbox(campaign_form("targetContentNetwork"), '_label -> "", '_showConstraints -> false, 'class -> "form-control") Target Content Network
+                                </label>
+                            </div>
+                            <div class="checkbox">
+                                <label>
+                                    @checkbox(campaign_form("targetPartnerSearchNetwork"), '_label -> "", '_showConstraints -> false, 'class -> "form-control") Target Partner Search Network
+                                </label>
+                            </div>
+                        </div>
+                            <!-- /.panel-body -->
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+    @_bulk_import(bulk_import_errors, controllers.google.mcc.account.campaign.routes.CampaignController.bulkNewCampaign, "Campaign(s)")
+}

@@ -1,0 +1,98 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import helpers.lynx.SessionControllerHelper._
+@(
+        currentPageData: List[models.mysql.ArrivalFact],
+        currentPage: Int,
+        currentPageSize: Int,
+        currentOrderBy: Int,
+        currentFilter: String,
+        totalCount: Int
+)(implicit request: AuthenticatedRequest[Any])
+
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Lynx Sessions", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <table>
+                <tr>
+                    <td>
+                        <h3 class="page-header">Lynx Sessions</h3>
+                    </td>
+                    <td>&nbsp;</td>
+                    <td align="center"></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+        <!-- /.row -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    @totalCount Session(s)
+                </div>
+                    <!-- /.panel-heading -->
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <div id="dataTables_wrapper" class="dataTables_wrapper form-inline" role="grid">
+                            <div class="row">
+                                @views.html.snippets.pagination_size(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    currentFilter,
+                                    controllers.lynx.reporting.routes.SessionController.session
+                                )
+                                @views.html.snippets.search()
+                            </div>
+                            <table class="table-striped table-bordered table-hover dataTable no-footer" style="width: 100%;" id="dataTables" aria-describedby="dataTables_info">
+                                @views.html.snippets.table_header(
+                                    List(
+                                        ("session ID", 1, 1),
+                                        ("conf", 1, 1),
+                                        ("secs", 1, 1),
+                                        ("revenue", 1, 1),
+                                        ("robot_id", 1, 1),
+                                        ("new_arrival", 1, 1),
+                                        ("event_counts", 1, 1)
+                                    )
+                                )
+                                <tbody>
+                                @currentPageData.map { session =>
+                                    <tr class="gradeA odd">
+                                        <td class=" ">@session.session.session_id</td>
+                                        <td class=" ">@session.traffic_source.conf</td>
+                                        <td class=" ">@session.session.duration</td>
+                                        <td class=" ">@session.session.revenue</td>
+                                        <td class=" ">@session.browser.robot_id</td>
+                                        <td class=" ">@session.session.new_session</td>
+                                        <td class=" ">@session.event_1.events_count</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                            <div class="row">
+                                @views.html.snippets.showing_text(currentPageSize, currentPage, totalCount)
+                                @views.html.snippets.pagination_buttons(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    totalCount,
+                                    currentFilter,
+                                    controllers.lynx.reporting.routes.SessionController.session
+                                )
+                            </div>
+                        </div>
+                    </div>
+                        <!-- /.table-responsive -->
+                </div>
+                    <!-- /.panel-body -->
+            </div>
+                <!-- /.panel -->
+        </div>
+    </div>
+}

@@ -1,0 +1,57 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    customer_id: String,
+    customer_form: Form[helpers.msn.api_account.customer.CustomerControllerHelper.CustomerForm]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+@main(title="adVanced - Edit Msn Customer", chart=false) {
+    @form(controllers.msn.api_account.customer.routes.CustomerController.editCustomer(customer_id)) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Msn Customer (@customer_form("id"))
+                </div>
+                <div class="panel-body">
+                    <div class="form-group">
+                    CustomerID - @customer_form("customer_id").value
+                    </div>
+                    <div class="form-group">
+                    CustomerNumber - @customer_form("customer_number").value
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(customer_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(customer_form("customer_address.line1"), '_label -> "Address1", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(customer_form("customer_address.line2"), '_label -> "Address2", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(customer_form("customer_address.city"), '_label -> "City", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(customer_form("customer_address.state_or_province"), '_label -> "State (Province)", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(customer_form("customer_address.postal_code"), '_label -> "Postal Code", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(customer_form("customer_address.country_code"), '_label -> "Country Code", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+
+    }
+}

@@ -1,0 +1,35 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    api_account_id: String,
+    api_account_form: Form[models.mongodb.facebook.Facebook.FacebookApiAccount]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+@main(title="adVanced - Edit Facebook API Account", chart=false) {
+    @form(controllers.facebook.api_account.routes.ApiAccountController.editApiAccount(api_account_id)) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Facebook API Account
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                        @inputText(api_account_form("accountId"), '_label -> "Account ID", 'class -> "form-control", '_showConstraints -> false)
+                        @inputText(api_account_form("applicationSecret"), '_label -> "Application Secret", 'class -> "form-control", '_showConstraints -> false)
+                        @inputText(api_account_form("accessToken"), '_label -> "Access Token", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+
+    }
+}

@@ -1,0 +1,70 @@
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@()(implicit request: AuthenticatedRequest[Any])
+
+<div class="modal fade" id="maxcpc-edit-modal" tabindex="-1" role="dialog" aria-labelledby="maxcpc-edit-modal" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title" id="maxcpc-edit-modal-title">Edit Buget</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <span id="maxcpc-edit-modal-body-text">Set Max Cpc for adgroup (id here) - (name here)</span>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div style="padding-top: 1em;">
+                            <div class="form-group">
+                                <input type="hidden" id="maxcpc-edit-modal-adgroup-id" value="0"/>
+                                <input type="number" class="form-control" id="maxcpc-edit-modal-input" value="0.0"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" id="maxcpc-edit-modal-save-btn" class="btn btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+
+function showMaxCpcEditModal(adGroupId, adGroupName, currentMaxCpc) {
+    $('#maxcpc-edit-modal-body-text').text("Set Max Cpc for adgroup " + adGroupId + " - " + adGroupName);
+    $('#maxcpc-edit-modal-input').val(currentMaxCpc);
+    $('#maxcpc-edit-modal-adgroup-id').val(adGroupId);
+    
+    // On max cpc modal save, call the maxcpc route with the adgroup id and dollar amt.
+    $('#maxcpc-edit-modal-save-btn').off('click');
+    $('#maxcpc-edit-modal-save-btn').on('click', function () {
+        $.ajax({
+            url: '/google/mcc/account/campaign/adgroup/' + $('#maxcpc-edit-modal-adgroup-id').val() + '/maxcpc?dollarAmt=' + $('#maxcpc-edit-modal-input').val(),
+            type: 'POST',
+            success: function (data) {
+                $('#message-modal-title').text('Success');
+                $('#message-modal-text').text(data);
+                switchModals('#maxcpc-edit-modal', '#message-modal');
+                $('#message-modal-ok-btn').on('click', function () {
+                    $(this).off('click');
+                    window.location.reload();
+                });
+            },
+            error: function (xhr, status, error) {
+                $('#message-modal-title').text('Error');
+                $('#message-modal-text').text(xhr.responseText);
+                switchModals('#maxcpc-edit-modal', '#message-modal');
+            }
+        });
+    });
+
+    $('#maxcpc-edit-modal').modal('show');
+}
+
+
+</script>

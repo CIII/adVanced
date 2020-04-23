@@ -1,0 +1,59 @@
+@import helpers.google.mcc.account.campaign.adgroup.ad.ImageAdControllerHelper
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(image_ad_form: Form[ImageAdControllerHelper.ImageAdForm], bulk_import_errors: List[String])(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import com.google.api.ads.adwords.axis.v201609.cm._
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+@main(title="adVanced - New Google ImageAd", chart=false) {
+    @form(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.createImageAd) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Google ImageAd
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                        @inputText(image_ad_form("image_ad.name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        <label>Image</label>
+                        <input type="file" name="image" />
+                    </div>
+                    <div class="form-group">
+                        @inputText(image_ad_form("image_ad.url"), '_label -> "URL", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                        @inputText(image_ad_form("image_ad.display_url"), '_label -> "Display URL", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                        @inputText(image_ad_form("image_ad.tracking_url_template"), '_label -> "Tracking URL Template", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        image_ad_form("status"),
+                        options("" :: List(UserStatus._ENABLED, UserStatus._PAUSED, UserStatus._REMOVED)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Status",
+                            'style -> "width:350px;",
+                            '_label -> "Status",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+
+    }
+    @_bulk_import(bulk_import_errors, controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.bulkNewImageAd, "ImageAd(s)")
+}

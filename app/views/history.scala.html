@@ -1,0 +1,94 @@
+@import security._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import Shared.Shared.TaskStructure
+@(
+    tasks: Seq[TaskStructure],
+    currentPage: Int,
+    currentPageSize: Int,
+    currentOrderBy: Int,
+    currentFilter: String,
+    totalCount: Int
+)(implicit request: AuthenticatedRequest[Any])
+
+@import Shared.Shared._
+@main(title="adVanced - Sync Task History", chart=false) {
+    <br />
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            Sync Task History
+        </div>
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            @totalCount Sync Task(s)
+                        </div>
+                            <!-- /.panel-heading -->
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <div id="dataTables_wrapper" class="dataTables_wrapper form-inline" role="grid">
+                                    <div class="row">
+                                        @views.html.snippets.pagination_size(
+                                            currentPageSize,
+                                            currentPage,
+                                            currentOrderBy,
+                                            currentFilter,
+                                            controllers.routes.TaskController.history
+                                        )
+                                        @views.html.snippets.search()
+                                    </div>
+                                    <table class="table-striped table-bordered table-hover dataTable no-footer" style="width: 100%;" id="dataTables" aria-describedby="dataTables_info">
+                                        @views.html.snippets.table_header(
+                                            List(
+                                                ("id", 1, 1),
+                                                ("user", 1, 1),
+                                                ("change count", 1, 1),
+                                                ("start time", 1, 1),
+                                                ("complete time", 1, 1),
+                                                ("complete", 1, 1),
+                                                ("process count", 1, 1)
+                                            )
+                                        )
+                                        <tbody>
+                                        @tasks.map { task =>
+                                            <tr class="gradeA odd">
+                                                <td class="sorting_1">@task.id</td>
+                                                <td class=" ">@task.user</td>
+                                                <td class=" ">@task.data.size</td>
+                                                <td class=" ">@task.startTime</td>
+                                                <td class=" ">@task.completeTime</td>
+                                                <td class=" ">@task.complete</td>
+                                                <td class=" ">@task.processes.size</td>
+                                                <td class="center ">
+                                                    <input type="submit" value="Re-Run" class="btn btn-primary btn-xs">
+                                                </td>
+                                            </tr>
+                                        }
+                                        </tbody>
+                                    </table>
+                                    <div class="row">
+                                        @views.html.snippets.showing_text(currentPageSize, currentPage, totalCount)
+                                        @views.html.snippets.pagination_buttons(
+                                            currentPageSize,
+                                            currentPage,
+                                            currentOrderBy,
+                                            totalCount,
+                                            currentFilter,
+                                            controllers.routes.TaskController.history
+                                        )
+                                    </div>
+                                </div>
+                            </div>
+                                <!-- /.table-responsive -->
+                        </div>
+                            <!-- /.panel-body -->
+                    </div>
+                        <!-- /.panel -->
+                </div>
+            </div>
+        </div>
+        <div class="panel-footer">
+        </div>
+    </div>
+}

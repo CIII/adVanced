@@ -1,0 +1,1278 @@
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import util.charts.ChartWriter._
+@import Shared.Shared.gson
+@import models.mongodb.UserAccount
+@import models.mongodb.performance.PerformanceEntity
+@import models.mongodb.performance.PerformanceField.PerformanceFieldType._
+@import models.mongodb.performance.PerformanceField.VisualizationDataType.{string, number}
+@(
+    chartName: String, 
+    chart: util.charts.performance.PerformanceChart[_ <: PerformanceEntity]
+)(implicit request: AuthenticatedRequest[Any])
+
+@import helper._
+@import play.api.libs.json._
+
+<div id="dashboard-div">
+    <div class="row">
+        <div class="col-lg-10">
+            <h3 class="page-header">@chartName</h3>
+        </div>
+        <div class="col-lg-2">
+            <div class="pull-right">
+                <div id="date-dropdown" class="dropdown pad-top-1">
+                    <button data-toggle="dropdown" class="btn btn-sm btn-default dropdown-toggle">@chart.metaData.startDate.get.toString("MM/dd/yyyy") - @chart.metaData.endDate.get.toString("MM/dd/yyyy") <span class="caret"></span></button>
+                    <ul class="dropdown-menu keep_open">
+                        <li>
+                            <div class="col-lg-12">
+                                <br>
+                                <label for="start-date-filter">Start</label>
+                                <input class="form-control" type="date" id="start-date-filter"/>
+                                <br>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="col-lg-12">
+                                <label for="end-date-filter">End</label>
+                                <input class="form-control" type="date" id="end-date-filter"/>
+                                <br>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="col-lg-12">
+                                <div class="pull-right">
+                                    <button class="btn btn-xs btn-primary" id="date-filter-apply-btn">Apply</button>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div class="panel-title">
+                        <a data-toggle="collapse" id="filter-panel-toggle" href="#filter-panel">
+                            <i class="fa fa-gear"></i> Configure
+                        </a>
+                    </div>
+                </div>
+                <div id="filter-panel" class="panel-collapse collapse">
+                    <div class="panel-body">
+                        <ul class="nav nav-tabs">
+                            <li class="active"><a href="#configure-reports" data-toggle="tab">Reports</a></li>
+                            <li><a href="#dimension-filters" data-toggle="tab">Filters</a></li>
+                            <li><a href="#measure-filters" data-toggle="tab">Constraints</a></li>
+                            <li><a href="#column-filters" data-toggle="tab">Columns</a></li>
+                            <li><a href="#graphs-filters" data-toggle="tab">Graphs</a></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade in active" id="configure-reports">
+                                <div class="row">
+                                    <div class="col-lg-12">
+                                        <br/>
+                                        <select class="form-control" id="template-select">
+                                            <option value="< new report >">< new report ></option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-lg-12">
+                                        <br/>
+                                        <div class="pull-right">
+                                            <div class="form-group">
+                                                <button class="btn btn-sm btn-primary" id="save-template-modal-btn" data-toggle="modal" data-target="#save-template-modal">Save</button>
+                                                <div class="modal fade" id="save-template-modal" tabindex="-1" role="dialog" aria-labelledby="save-template-label" aria-hidden="true">
+                                                    <div class="modal-dialog">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                                                                <h4 class="modal-title" id="save-template-label">Save Template</h4>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                <label for="new-template-name">Report Name</label>
+                                                                <input class="form-control" type="text" id="new-template-name" value="< new report >"/>
+                                                                <br>
+                                                                <div class="alert alert-warning alert-dismissable" id="override-template-warning" hidden>
+                                                                    <a onclick="$('#override-template-warning').hide()" id="override-template-warning-btn" class="close">&times;</a><i class="fa fa-warning"></i> Saving with this name will override an existing report
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                                                                <button type="button" id="save-template-btn" class="btn btn-primary" data-dismiss="modal">Save</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button class="btn btn-sm btn-primary" id="load-template-modal-btn" data-toggle="modal" data-target="#load-template-modal" disabled>Load</button>
+                                                <div class="modal fade" id="load-template-modal" tabindex="-1" role="dialog" aria-labelledby="load-template-label" aria-hidden="true">
+                                                    <div class="modal-dialog">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                                                                <h4 class="modal-title" id="load-template-label">Load Report</h4>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                Are you sure you want to load this report? Any unsaved changes to the current report will be lost.
+                                                                <br><br>
+                                                                <div class="form-group" id="load-radio-group">
+                                                                    <label>Use Report Dates? </label>
+                                                                    <label class="radio-inline">
+                                                                        <input type="radio" name="report-dates-radio" id="use-report-date-radio" value="true" checked>yes
+                                                                    </label>
+                                                                    <label class="radio-inline">
+                                                                        <input type="radio" name="report-dates-radio" id="use-user-date-radio" value="false">no
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                                                                <button type="button" id="load-template-btn" class="btn btn-primary" data-dismiss="modal">Load</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade in" id="dimension-filters">
+                                <br/>
+                                <div class="row">
+                                    @for(column <- chart.visibleColumns.filter{ column => column.isDimension && column.isFilterable}){
+                                        <div class="col-lg-4">
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <label for="dimension-filter-select-@column.field.fieldName">@column.header</label>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <div class="form-group input-group">
+                                                        <input id="@column.field.fieldName-filter-search-input" type="text" class="form-control"/>
+                                                        <span class="input-group-btn">
+                                                            <button id="@column.field.fieldName-filter-search-btn" class="btn btn-default" type="button">
+                                                                <i class="fa fa-search"></i>
+                                                            </button>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <div class="form-group">
+                                                        <select multiple id="dimension-filter-select-@column.field.fieldName" class="form-control">
+                                                            @for(filterOption <- chart.getColumnFilterOptions(column)){
+                                                                <option value="@filterOption">@filterOption</option>
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            <div class="tab-pane fade in" id="measure-filters">
+                                <br/>
+                                <div id="measure-filter-new" class="row">
+                                    <div class="form-group">
+                                        <div class="col-lg-2">
+                                            <label for="measure-filter-new-measure-select">Measure</label>
+                                            <select id="measure-filter-new-measure-select" class="form-control">
+                                            @for(column <- chart.visibleColumns.filter{ column => column.isMeasure && column.isFilterable}){
+                                                <option value="@column.filterField.fieldName">@column.header</option>
+                                            }
+                                            </select>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label for="measure-filter-new-operand-select">Operand</label>
+                                            <select id="measure-filter-new-operand-select" class="form-control">
+                                                <option value="gt">GT</option>
+                                                <option value="gte">GTE</option>
+                                                <option value="lt">LT</option>
+                                                <option value="lte">LTE</option>
+                                                <option value="eq">EQ</option>
+                                                <option value="ne">NE</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label for="measure-filter-new-value-input">Value</label>
+                                            <input id="measure-filter-new-value-input" class="form-control" type="number" value="0.0"></input>
+                                        </div>
+                                    </div>
+                                    <span class="pull-right">
+                                        <div class="col-lg-1">
+                                            <button type="button" id="measure-filter-add-btn" title="Add" class="btn btn-circle btn-success">
+                                                <i class="fa fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </span>
+                                </div>
+                                @for((measureFilter, i) <- chart.metaData.chartFilters.filter { chartFilter => chartFilter.field.fieldType == measure}.zipWithIndex){
+                                    <br/>
+                                    <div id="measure-filter-@i-row" class="row">
+                                        <div class="form-group">
+                                            <div class="col-lg-2">
+                                                <label for="measure-filter-@i-row-measure-select">Measures</label>
+                                                <select id="measure-filter-@i-row-measure-select" class="form-control" disabled>
+                                                @for(column <- chart.visibleColumns.filter{ column => column.isMeasure}){
+                                                    <option value="@column.filterField.fieldName" @if(measureFilter.field.fieldName.equals(column.filterField.fieldName)){ selected }>@column.header</option>
+                                                }
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label for="measure-filter-@i-row-operand-select">Operand</label>
+                                                <select id="measure-filter-@i-row-operand-select" class="form-control" disabled>
+                                                    <option value="gt" @if(measureFilter.operation.equals("gt")){ selected }>GT</option>
+                                                    <option value="gte" @if(measureFilter.operation.equals("gte")){ selected }>GTE</option>
+                                                    <option value="lt" @if(measureFilter.operation.equals("lt")){ selected }>LT</option>
+                                                    <option value="lte" @if(measureFilter.operation.equals("lte")){ selected }>LTE</option>
+                                                    <option value="eq" @if(measureFilter.operation.equals("eq")){ selected }>EQ</option>
+                                                    <option value="ne" @if(measureFilter.operation.equals("ne")){ selected }>NE</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label for="measure-filter-@i-row-value-input">Value</label>
+                                                <input id="measure-filter-@i-row-value-input" class="form-control" type="number" value="@measureFilter.values.head" disabled></input>
+                                            </div>
+                                        </div>
+                                        <span class="pull-right">
+                                            <div class="col-lg-1">
+                                                <button type="button" id="measure-filter-@i-remove-btn" title="Add" class="btn btn-circle btn-danger">
+                                                    <i class="fa fa-minus"></i>
+                                                </button>
+                                            </div>
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                            <div class="tab-pane fade" id="column-filters">
+                                <br/>
+                                <div class="row">
+                                    <div class="form-group">
+                                        <div class="col-lg-4">
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <label for="column-dimension-filter-select">Dimensions
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <div class="form-group input-group">
+                                                        <input id="column-dimension-filter-search-input" type="text" class="form-control"/>
+                                                        <span class="input-group-btn">
+                                                            <button id="column-dimension-filter-search-btn" class="btn btn-default" type="button">
+                                                                <i class="fa fa-search"></i>
+                                                            </button>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <select multiple id="column-dimension-filter-select" class="form-control">
+                                                        @for(column <- chart.columns.filter{ column => column.isDimension}){
+                                                            <option value="@column.field.fieldName">@column.header</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-4">
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <label for="column-measure-filter-select">Measures</label>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <div class="form-group input-group">
+                                                        <input id="measure-filter-search-input" type="text" class="form-control"/>
+                                                        <span class="input-group-btn">
+                                                            <button id="measure-filter-search-btn" class="btn btn-default" type="button">
+                                                                <i class="fa fa-search"></i>
+                                                            </button>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-lg-12">
+                                                    <select multiple id="column-measure-filter-select" class="form-control">
+                                                        @for(column <- chart.columns.filter{ column => column.isMeasure}){
+                                                            <option value="@column.field.fieldName">@column.header</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="graphs-filters">
+                                <br/>
+                                <div id="graph-new" class="row">
+                                    <div class="form-group">
+                                        <div class="col-lg-2">
+                                            <label for="graph-new-type-select">Type</label>
+                                            <select id="graph-new-type-select" class="form-control">
+                                                <option value="LineChart" selected>Line</option>
+                                                <option value="ComboChart">Combo</option>
+                                                <option value="BarChart">Bar</option>
+                                                <option value="AreaChart">Area</option>
+                                                <option value="Histogram">Histogram</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label for="graph-new-x-select">X</label>
+                                            <select id="graph-new-x-select" class="form-control" disabled>
+                                                @for(column <- chart.columns.filter { column => column.field.fieldName.equals("date") }){
+                                                    <option value="@column.field.fieldName" selected>@column.header</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <label for="graph-new-y-select">Y</label>
+                                            <select id="graph-new-y-select" class="form-control" multiple>
+                                                @for(column <- chart.visibleColumns.filter { column => column.isMeasure }){
+                                                    <option value="@column.field.fieldName">@column.header</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <span class="pull-right">
+                                        <div class="col-lg-1">
+                                            <button type="button" id="graph-add-btn" title="Add" class="btn btn-circle btn-success">
+                                                <i class="fa fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </span>
+                                </div>
+                                <br/>
+                                @for((graph, i) <- chart.metaData.graphs.zipWithIndex){
+                                    <div id="graph-@i-row" class="row">
+                                        <div class="form-group">
+                                            <div class="col-lg-2">
+                                                <label for="graph-@i-row-type-select">Type</label>
+                                                <select id="graph-@i-row-type-select" class="form-control" disabled>
+                                                    <option value="LineChart" @if(graph.graphType.equals("LineChart")){ selected }>Line</option>
+                                                    <option value="ComboChart" @if(graph.graphType.equals("ComboChart")){ selected }>Combo</option>
+                                                    <option value="AreaChart" @if(graph.graphType.equals("AreaChart")){ selected }>Area</option>
+                                                    <option value="BarChart" @if(graph.graphType.equals("BarChart")){ selected }>Bar</option>
+                                                    <option value="Histogram" @if(graph.graphType.equals("Histogram")){ selected }>Histogram</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label for="graph-@i-row-x-select">X</label>
+                                                <select id="graph-@i-row-x-select" class="form-control" disabled>
+                                                @for(column <- chart.columns.filter { column => column.field.fieldName.equals("date") }){
+                                                    <option value="@column.field.fieldName" @if(graph.fieldNames.contains(column.field.fieldName)){ selected }>@column.header</option>
+                                                }
+                                                </select> 
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label for="graph-@i-row-y-select">Y</label>
+                                                <select id="graph-@i-row-y-select" multiple class="form-control" disabled>
+                                                    @for(column <- chart.visibleColumns.filter { column => column.isMeasure }){
+                                                        <option value="@column.field.fieldName" @if(graph.fieldNames.contains(column.field.fieldName)){ selected }>@column.header</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <span class="pull-right">
+                                            <div class="col-lg-1">
+                                                <button type="button" id="graph-@i-remove-btn" title="Remove" class="btn btn-circle btn-danger">
+                                                    <i class="fa fa-minus"></i>
+                                                </button>
+                                            </div>
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-footer">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <span class="pull-right">
+                                    <button type="button" id="filter-apply-btn" title="Apply Filters" class="btn btn-circle btn-success">
+                                        <i class="fa fa-check"></i>
+                                    </button>
+                                    <button type="button" id="filter-unapply-btn" title="Remove Unapplied Filters" class="btn btn-circle btn-warning">
+                                        <i class="fa fa-undo"></i>
+                                    </button>
+                                    <button type="button" id="filter-reset-btn" title="Reset Filters" class="btn btn-circle btn-danger" data-toggle="modal" data-target="#reset-modal">
+                                        <i class="glyphicon glyphicon-ban-circle"></i>
+                                    </button>
+                                    <div class="modal fade" id="reset-modal" tabindex="-1" role="dialog" aria-labelledby="reset-modal-label" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                                                    <h4 class="modal-title" id="reset-modal-label">Reset?</h4>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Are you sure you want to reset all filters?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-default" data-dismiss="modal">No</button>
+                                                    <button id="modal-apply-reset-btn" type="button" class="btn btn-primary">Yes</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="alert alert-warning alert-dismissable" id="unapplied-filter-warning-div" hidden>        
+                <a onclick="$('#unapplied-filter-warning-div').hide()" id="unapplied-filter-warning-btn" class="close">&times;</a><i class="fa fa-warning"></i> Unapplied Filters Exist     
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h5 class="panel-title">
+                        <a data-toggle="collapse" href="#chart-panel">
+                            <i class="fa fa-bar-chart-o fa-fw"></i> Graphs
+                        </a>
+                    </h5>
+                </div>
+                <div id="chart-panel" class="panel-collapse collapse in">
+                    <div class="panel-body">
+                        @for((graph, i) <- chart.metaData.graphs.zipWithIndex){
+                            <br/>
+                            <div id="graph-@i"></div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+	<div class="row">
+    	<div class="col-lg-12">
+		    <div id="table-panel-div" class="panel panel-default">
+		        <div class="panel-heading">
+		            <h5 class="panel-title">
+                        <i class="fa fa-table fa-fw"></i> @chartName
+                        <span class="pull-right">
+                            @chart.totalRecords Result(s)
+                        </span>
+                    </h5>
+		        </div>
+		        <div id="table-div" class="gTable"></div>
+                <div id="table-actions-div" class="panel-footer">
+                    <span>
+                        <a class="btn btn-xs btn-outline btn-default @if(chart.metaData.page <= 1){ disabled }" href="#" id="pagination-prev-btn">Prev</a>
+                        <a class="btn btn-xs btn-outline btn-default @if(chart.metaData.page >= chart.totalRecords / chart.metaData.pageSize){ disabled } " href="#" id="pagination-next-btn">Next</a>
+                        @if(chart.metaData.page - 2 > 1){
+                            <a class="btn btn-xs btn-outline btn-default" href="#" id="pagination-page-first-btn">1</a>
+                        }
+                        @for(pageNum <- (chart.metaData.page - 2) to (chart.metaData.page + 2)){
+                            @if(pageNum > 0 && pageNum <= (chart.totalRecords / chart.metaData.pageSize)){
+                                <a class="btn btn-xs btn-outline paginate_middle @if(pageNum == chart.metaData.page){ btn-primary } else { btn-default }" href="#" id="pagination-page-@pageNum-btn">@pageNum</a>
+                            }
+                        }
+                        @if(chart.metaData.page + 2 < (chart.totalRecords / chart.metaData.pageSize)){
+                            <a class="btn btn-xs btn-outline btn-default" href="#" id="pagination-page-last-btn">@{(chart.totalRecords / chart.metaData.pageSize)}</a>
+                        }
+                    </span>
+                    <span style="padding-left: 2em;">
+                        Page Size: 
+                        <select id="page-size-select">
+                            <option value="1" @if(chart.metaData.pageSize == 1){ selected }>1</option>
+                            <option value="10" @if(chart.metaData.pageSize == 10){ selected }>10</option>
+                            <option value="20" @if(chart.metaData.pageSize == 20){ selected }>20</option>
+                            <option value="50" @if(chart.metaData.pageSize == 50){ selected }>50</option>
+                            <option value="100" @if(chart.metaData.pageSize == 100){ selected }>100</option>
+                            <option value="1000" @if(chart.metaData.pageSize == 1000){ selected }>1000</option>
+                            <option value="@chart.totalRecords" @if(chart.metaData.pageSize == chart.totalRecords){ selected }>All</option>
+                        </select>
+                    </span>
+                    <span class="pull-right">
+                        <a id="csv-export" href="#">Export to CSV</a>
+                    </span>
+                </div>
+		    </div>
+	    </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default" @if(!chart.metaData.editMode){ hidden }>
+                <div class="panel-heading">
+                    <h5 class="panel-title">
+                        <i class="fa fa-flash"></i> Actions
+                    </h5>
+                </div>
+                <div class="panel-body">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@snippets.modals.maxcpc_edit_modal()
+@snippets.modals.budget_edit_modal()
+@snippets.modals.message_modal()
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+"use strict";
+
+@{ play.api.Logger.info(chart.metaData.toString)}
+var chartMetaData = @Html(gson.toJson(chart.metaData));
+console.log(JSON.stringify(chartMetaData));
+var fieldMap = new Map();
+var nextGraphId = chartMetaData.graphs.length;
+var nextMeasureFilterId = 0;
+
+function buildFieldMap() {
+    @for(column <- chart.columns){
+        fieldMap.set('@column.field.fieldName', '@column.field.fieldType');
+    }
+}
+
+//Hide the fromModal and open toModal
+function switchModals(fromModal, toModal) {
+    $(fromModal).on('hidden.bs.modal', function (e) {
+        $(toModal).modal('show');
+        //clear this function so it doesn't show up if they exit the window again
+        $(fromModal).off();
+    });
+
+    $(fromModal).modal('hide');
+}
+
+function registerPaginationButtons() {
+    $('#pagination-next-btn').on('click', function() {
+        chartMetaData.page += 1;
+        reload(chartMetaData.reloadUri);
+    });
+
+    $('#pagination-prev-btn').on('click', function() {
+        chartMetaData.page -= 1;
+        reload(chartMetaData.reloadUri);
+    });
+
+    $('.paginate_middle').each(function(i, btn) {
+        $(btn).on('click', function() {
+            chartMetaData.page = $(btn).text();
+            reload(chartMetaData.reloadUri);
+        }); 
+    });
+           
+
+    if(('#pagination-page-first-btn').length){
+        $('#pagination-page-first-btn').on('click', function() {
+            chartMetaData.page = 1;
+            reload(chartMetaData.reloadUri);
+        });    
+    }
+
+    if(('#pagination-page-last-btn').length){
+        $('#pagination-page-last-btn').on('click', function() {
+            chartMetaData.page = parseInt(@{chart.totalRecords} / chartMetaData.pageSize);
+            reload(chartMetaData.reloadUri);
+        });    
+    }
+    
+}
+
+function registerPageSizeSelect() {
+    $('#page-size-select').on('change', function() {
+        chartMetaData.pageSize = $('#page-size-select option:selected').val();
+        chartMetaData.page = 1;
+        reload(chartMetaData.reloadUri);
+    });
+}
+
+function registerApplyAndResetButtons() {
+    $('#filter-apply-btn').on('click', function() {
+        $('#column-dimension-filter-select').find('option').not(':selected').each(function(i, unselected){
+            for(var i = 0; i < chartMetaData.chartFilters.length; i++){
+                if(chartMetaData.chartFilters[i].field == $(unselected).text()){
+                    delete chartMetaData.chartFilters.splice(i,1);
+                }
+            }
+        });
+
+        for(var i = 0; i < chartMetaData.chartFilters.length; i++){
+            if(chartMetaData.chartFilters[i].values.length === 0){
+                delete chartMetaData.chartFilters.splice(i,1);
+            }
+        }
+
+        reload(chartMetaData.reloadUri);
+    })
+
+    $('#modal-apply-reset-btn').on('click', function() {
+        window.location.replace(chartMetaData.reloadUri);
+    })
+
+    $('#filter-unapply-btn').click(function() {
+        window.location.reload();
+    });
+}
+
+function registerchartFilters() {
+   registerDimensionFilters();
+   registerMeasureFilters();
+}
+
+function registerMeasureFilters(){
+    // set the id for the existing filters
+    for(var i = 0; i < chartMetaData.chartFilters.length; i++){
+        chartMetaData.chartFilters[i].id = nextMeasureFilterId++;
+        registerRemoveMeasureFilterBtn(i);
+    }
+
+    // register measure filter add button to dynamically add a filter & apply what's selected in the "new"
+    // measure filter to the meta data
+    $('#measure-filter-add-btn').on('click', function() {
+        var filterField = $('#measure-filter-new-measure-select').val();
+        var filterOperation = $('#measure-filter-new-operand-select').val();
+        var filterValue = $('#measure-filter-new-value-input').val();
+
+        var filterId = nextMeasureFilterId++;
+        var newMeasureFilter = {
+            id: filterId,
+            field: {
+                fieldName: filterField,
+                fieldType: fieldMap.get(filterField)
+            },
+            operation: filterOperation,
+            values: [ parseFloat(filterValue) ]
+        };
+
+        chartMetaData.chartFilters.push(newMeasureFilter);
+
+        // Create a new div by cloning the "new" measure filter div, and replacing the "new" portion
+        // of the ids with the measure id, which is sequential.
+        $('#measure-filters').append($('<br>'));
+        $('#measure-filters').append($('#measure-filter-new')
+            .clone()
+            .wrap('<p/>').parent()    // wrap so that when we do html() it includes the row div
+            .html()
+            .replace(/measure-filter-new/g, "measure-filter-" + filterId + "-row")
+            .replace(/measure-filter-add-btn/g, "measure-filter-" + filterId + "-remove-btn")
+            .replace("success", "danger")
+            .replace("plus", "minus")
+        );
+
+        registerRemoveMeasureFilterBtn(filterId);
+
+        // Set the selected values for the new filter & disable fields
+        $('#measure-filter-' + filterId + '-row-measure-select').val(filterField).change();
+        $('#measure-filter-' + filterId + '-row-measure-select').attr('disabled', true);
+        $('#measure-filter-' + filterId + '-row-operand-select').val(filterOperation).change();
+        $('#measure-filter-' + filterId + '-row-operand-select').attr('disabled', true);
+        $('#measure-filter-' + filterId + '-row-value-input').val(filterValue).change();
+        $('#measure-filter-' + filterId + '-row-value-input').attr('disabled', true);
+
+        // Notify user of unapplied changes
+        $('#unapplied-filter-warning-div').show();
+    });
+}
+
+function registerRemoveMeasureFilterBtn(filterId) {
+    // register remove button so that the filter is removed from meta data, and the div is removed
+    $('#measure-filter-' + filterId + '-remove-btn').on('click', function(){
+        chartMetaData.chartFilters = chartMetaData.chartFilters.filter(function(chartFilter) {
+            return chartFilter.id == null || chartFilter.id != filterId;
+        });
+
+        $('#measure-filter-' + filterId + '-row').fadeOut(300);
+
+        // Notify user of unapplied changes
+        $('#unapplied-filter-warning-div').show();
+    });
+}
+
+function registerDimensionFilters(){
+    @for(column <- chart.visibleColumns.filter{ column => column.isDimension}){
+        console.log('@column.filterField.fieldName');
+        // Initialize selected options based on meta data
+        var chartFilter = getchartFilterForField('@column.filterField.fieldName');
+        if(chartFilter != null){
+            for(var i = 0; i < chartFilter.values.length; i++){
+                $('#dimension-filter-select-@column.field.fieldName option[value="' + chartFilter.values[i] + '"]').attr('selected', 1);
+            }
+        }
+
+        // Create listener to update chartMetaData when the filter for a dimension changes
+        $('#dimension-filter-select-@column.field.fieldName').on('change', function() {
+            var filterValues = [];
+            $('#dimension-filter-select-@column.field.fieldName :selected').each(function(i, selected){
+                filterValues[i] = $(selected).text();
+            });
+
+            var chartFilter = getchartFilterForField('@column.filterField.fieldName');
+            if(chartFilter == null){
+                chartMetaData.chartFilters.push({
+                    field: {
+                        fieldName: '@column.filterField.fieldName',
+                        fieldType: '@column.filterField.fieldType'
+                    }, 
+                    operation: 'in', 
+                    values: filterValues
+                });
+            } else {
+                chartFilter.operation = 'in';
+                chartFilter.values = filterValues;
+            }
+
+            $('#unapplied-filter-warning-div').show();
+        });
+
+        $('#@column.field.fieldName-filter-search-btn').on('click', function(){
+            filterSelect('dimension-filter-select-@column.field.fieldName', $('#@column.field.fieldName-filter-search-input').val());
+        });
+
+        $('#@column.field.fieldName-filter-search-input').on('keyup', function(){
+            filterSelect('dimension-filter-select-@column.field.fieldName', $('#@column.field.fieldName-filter-search-input').val());
+        });
+    }
+}
+
+function getchartFilterForField(fieldName) {
+    for(var i = 0; i < chartMetaData.chartFilters.length; i++){
+        if(chartMetaData.chartFilters[i].field.fieldName == fieldName){
+            return chartMetaData.chartFilters[i];
+        }
+    }
+
+    return null;
+}
+
+function registerColumnFilter() {
+    // Initialize filter
+    for(var i = 0; i < chartMetaData.showColumns.length; i++){
+        $('#column-dimension-filter-select option[value="' + chartMetaData.showColumns[i] + '"]').attr("selected", 1);
+        $('#column-measure-filter-select option[value="' + chartMetaData.showColumns[i] + '"]').attr("selected", 1);
+    }
+
+    // Create listener
+    $('#column-dimension-filter-select').on('change', function(){
+        applyColumnFilters();
+    });
+
+    $('#column-measure-filter-select').on('change', function(){
+        applyColumnFilters();
+    });
+
+    // create search filters
+    $('#column-dimension-filter-search-btn').on('click', function() {
+        filterSelect('column-dimension-filter-select', $('#column-dimension-filter-search-input').val());
+    });
+
+    $('#column-dimension-filter-search-input').on('keyup', function(){
+        filterSelect('column-dimension-filter-select', $(this).val());
+    });
+
+    // create search filters
+    $('#measure-filter-search-btn').on('click', function() {
+        filterSelect('column-measure-filter-select', $('#measure-filter-search-input').val());
+    });
+
+    $('#measure-filter-search-input').on('keyup', function(){
+        filterSelect('column-measure-filter-select', $(this).val());
+    });
+}
+
+function filterSelect(select, filterStr){
+    $('#' + select + ' option').each(function(i, element){
+        var hide = false;
+        if(filterStr != null && filterStr !== ""){
+            hide = element.text.toLowerCase().indexOf(filterStr.toLowerCase()) === -1;
+        }
+        $(element).attr('hidden', hide);
+    });
+}
+
+function applyColumnFilters() {
+    var values = [];
+    $('#column-dimension-filter-select :selected').each(function(i, selected){
+        values.push($(selected).val());
+    });
+    $('#column-measure-filter-select :selected').each(function(i, selected){
+        values.push($(selected).val());
+    });
+
+    chartMetaData.showColumns = values;
+    $('#unapplied-filter-warning-div').show();
+}
+
+function registerDateFilter() {
+    // register date dropdown so that it doesn't close when we click the html inputs
+    $('.dropdown-menu input, .dropdown-menu label').click(function(e) {
+        e.stopPropagation();
+    });
+
+    // Set initial values
+    $('#start-date-filter').val(chartMetaData.startDate);
+    $('#end-date-filter').val(chartMetaData.endDate);
+
+    // Create listeners
+    $('#start-date-filter').on('change', function() {
+        chartMetaData.startDate = $('#start-date-filter').val();
+        $('#unapplied-filter-warning-div').show();
+    });
+
+    $('#end-date-filter').on('change', function() {
+        chartMetaData.endDate = $('#end-date-filter').val();
+        $('#unapplied-filter-warning-div').show();
+    });
+
+    $('#date-filter-apply-btn').on('click', function() {
+        reload(chartMetaData.reloadUri);
+    });
+}
+
+function registerGraphFilter() {
+    for(var i = 0; i < chartMetaData.graphs.length; i++){
+        chartMetaData.graphs[i].id = i;
+        registerGraphRemoveBtn(i);
+    }  
+
+    $('#graph-add-btn').on('click', function() {
+        var fields = [];
+        fields.push($('#graph-new-x-select option:selected').val());
+        $('#graph-new-y-select :selected').each(function(i, selected){
+            fields.push($(selected).val());
+        })
+
+        if(fields.length > 1){            
+            var id = nextGraphId++;
+            var graphType = $('#graph-new-type-select option:selected').val();
+            chartMetaData.graphs.push({
+                graphType: graphType,
+                fieldNames: fields,
+                id: id
+            })
+
+            console.log(fields);
+
+            // Create a new div by cloning the "new" graph div, and replacing the "new" portion
+            // of the ids with the graph id, which is sequential.
+            $('#graphs-filters').append($('<br>'));
+            $('#graphs-filters').append($('#graph-new')
+                .clone()
+                .wrap('<p/>').parent()    // wrap so that when we do html() it includes the row div
+                .html()
+                .replace(/graph-new/g, "graph-" + id + "-row")
+                .replace(/graph-add-btn/g, "graph-" + id + "-remove-btn")
+                .replace("success", "danger")
+                .replace("plus", "minus")
+            );
+
+            // Set the selected measures
+            for(var i = 0; i < fields.length; i++){
+                $('#graph-' + id + '-row-x-select option[value=' + fields[i].fieldName + ']').attr('selected', true);
+                $('#graph-' + id + '-row-y-select option[value=' + fields[i].fieldName + ']').attr('selected', true);
+            }
+
+            // Disable since we update chart meta data when you click the "add" button, and that no longer exists
+            $('#graph-' + id + '-row-type-select').attr('disabled', true);
+            $('#graph-' + id + '-row-type-select').val(graphType).change();
+            $('#graph-' + id + '-row-x-select').attr('disabled', true);
+            $('#graph-' + id + '-row-y-select').attr('disabled', true);
+
+            // Register remove button so if a user removes the grahic we remove it from the meta data
+            registerGraphRemoveBtn(id);
+        } else {
+            alert('At least one Y variable is required');
+        }
+        
+    });
+}
+
+// Register the remove grahpic button, so that when a user removes a graph we remove it from the meta 
+// data, and then remove the div itself.
+function registerGraphRemoveBtn(id){
+    $('#graph-'+ id + '-remove-btn').on('click', function(){
+        $('#unapplied-filter-warning-div').show();
+        chartMetaData.graphs = chartMetaData.graphs.filter(function(graph) {
+            return graph.id != id;
+        });
+        $('#graph-' + id + '-row').fadeOut(300);
+    });
+}
+
+function registerCSVExport(table) {
+    $('#csv-export').on('click', function(){
+        reload(chartMetaData.reloadUri + '/csv');
+    });
+}
+
+
+function registerWindowResize() {
+    $(window).resize(function() {
+        if(this.resizeTO) clearTimeout(this.resizeTO);
+        this.resizeTO = setTimeout(function() {
+            $(this).trigger('resizeEnd');
+        }, 500);
+    });
+
+    $(window).on('resizeEnd', function() {
+        loadDashboard();
+    });
+}
+
+function registerTemplates() {
+    // Load a list of available templates and populate the template select
+    $.ajax({
+        url: '/chart_template?reloadUri=' + chartMetaData.reloadUri,
+        type: 'GET',
+        success: function(data){
+            var options = JSON.parse(data);
+            for(var i = 0; i < options.length; i++){
+                $('#template-select')
+                    .append($('<option></option>')
+                        .attr('value', options[i])
+                        .text(options[i]));
+            }
+        }
+    });
+
+    // change the input value in the modal to whatever is selected, disable the
+    // load button if the "< new report>" option is selected.
+    $('#template-select').on('change', function(){
+        var text = $('#template-select :selected').text();
+        $('#new-template-name').val(text);
+        if(text === "< new report >"){
+            $('#load-template-modal-btn').attr('disabled', true);
+        } else {
+            $('#load-template-modal-btn').attr('disabled', false);
+        }
+    });
+
+    // If the user selects a name that exists in the template-select options,
+    // then it's an existing template and will be overriding.  So alert them.
+    $('#new-template-name').on('keyup', function() {
+        showNameOverrideWarning();
+    });
+
+    $('#save-template-modal-btn').on('click', function() {
+        showNameOverrideWarning();
+    });
+
+    // Save the current page to a new template.
+    $('#save-template-btn').on('click', function(){
+        var template = {
+            templateName: $('#new-template-name').val(),
+            userName: '@{request.subject.get.asInstanceOf[UserAccount].userName}',
+            metaData: chartMetaData
+        };
+
+        $.ajax({
+            url: '/chart_template',
+            type: 'POST',
+            data: JSON.stringify(template),
+            contentType: 'application/json',
+            success: function(data){
+                $('#template-select')
+                    .append($('<option></option>')
+                        .attr('value', template.templateName)
+                        .text(template.templateName));
+            },
+            failure: function(data){
+                console.log(data);
+            }
+        });
+    });
+
+    $('#load-template-btn').on('click', function(){
+        var useReportDate = $('#load-radio-group input:radio:checked').val();
+        var form = $('<form action="/chart_template/' +  $('#template-select :selected').val() + '/' + '" method="get">' +
+            '<input type="text" name="reloadUri" value=\'' + chartMetaData.reloadUri + '\' />' +
+            '<input type="text" name="useReportDates" value=\'' + useReportDate + '\' />' +
+            '</form>');
+        $('body').append(form);
+        form.submit();
+    });
+}
+
+function registerModeToggle() {
+    // listener for change
+    $('#mode-toggle-radio :input').change(function() {
+        if($(this).val() === "edit"){
+            chartMetaData.editMode = true;
+        } else { 
+            chartMetaData.editMode = false;
+        }
+
+        reload(chartMetaData.reloadUri);
+    });
+}
+
+function showNameOverrideWarning() {
+    var name = $('#new-template-name').val();
+    var isOverriding = false;
+    $('#template-select option').each(function(){
+        if(name === $(this).val() && name !== "< new report >"){
+            isOverriding = true;
+        }
+    });
+
+    if(isOverriding){
+        $('#override-template-warning').show();
+    } else {
+        $('#override-template-warning').hide();
+    }
+}
+
+function buildDataTable() {
+    var dataTable, rows, row;
+
+    dataTable = new google.visualization.DataTable();
+    @for(column <- chart.visibleColumns){
+        dataTable.addColumn('@column.field.visualizationDataType', '@column.header');
+    }
+
+    dataTable.addRows(@{Html(gson.toJson(chart.getData))}.data);
+    return dataTable;
+}
+
+function buildTable(data) {
+    var table;
+
+    table = new google.visualization.ChartWrapper({
+        chartType: 'Table',
+        containerId: 'table-div',
+        dataTable: data,
+        options: {
+            width: '100%',
+            height: '100%',
+            page: 'disable',
+            allowHtml: true,
+            cssClassNames: {
+                headerRow: 'gTableHeader',
+                headerCell: 'gTableHeaderCell'
+            }
+        }
+    });
+
+    @for((column, i) <- chart.visibleColumns.zipWithIndex){
+        @if(column.field.visualizationDataType == number){
+            var formatter = new google.visualization.NumberFormat({
+                    negativeColor: 'red', 
+                    negativeParens: true, 
+                    fractionDigits: @column.decimalPlaces,
+                    prefix: '@column.numberFormatPrefix',
+                    suffix: '@column.numberFormatSuffix',
+                    groupingSymbol: '@column.groupingSymbol'
+                });
+            formatter.format(data, @i);
+        }
+    }
+
+    table.draw();
+    return table;
+}
+
+function buildGraphs() {
+    @if(chart.totalRecords > 0){
+        @for((graph,i) <- chart.metaData.graphs.zipWithIndex){
+            var graphDataTable = new google.visualization.DataTable();
+            var formats = [];
+            @for(column <- chart.getGraphColumns(graph)){
+                graphDataTable.addColumn('@column.field.visualizationDataType', '@column.header');
+                @if(column.numberFormatPrefix.equals("$")){
+                    formats.push('currency');
+                } 
+
+                @if(column.numberFormatSuffix.equals("%")){
+                    formats.push('#\'%\'');
+                } 
+
+                @if(column.numberFormatPrefix.equals("") && column.numberFormatSuffix.equals("")) {
+                    formats.push('decimal');
+                }
+            }
+
+            graphDataTable.addRows(@{Html(gson.toJson(chart.getGraphData(graph)))}.data);
+            @if(graph.graphType.equals("Line") || graph.graphType.equals("Bar")){
+                buildMaterialGraph(graphDataTable, @i, '@graph.graphType');
+            } else {
+                buildCorechartGraph(graphDataTable, @i, '@graph.graphType', formats);
+            }
+        }
+    }
+}
+
+function buildCorechartGraph(data, index, type, formats){
+    var options = {
+        animation: {
+            startup: true,
+            duration: 1000,
+            easing: 'out'
+        },
+        hAxis: {
+            showTextEvery: 7,
+            textStyle: {
+                color: 'gray',
+                fontSize: 12
+            }
+        },
+        series: {
+            0: {
+                targetAxisIndex: 0,
+                color: '#81C784'
+            },
+            1: {
+                targetAxisIndex: 1,
+                color: '#4285F4'
+            }
+        },
+        vAxes: [
+            { 
+                format: formats[1],
+                textStyle: {
+                    color: 'gray',
+                    fontSize: 12
+                }
+            },
+            { 
+                format: formats[2],
+                textStyle: {
+                    color: 'gray',
+                    fontSize: 12
+                }
+            }
+        ],
+        height: 250,
+        chartArea: {
+            left: 75,
+            top: 25,
+            right: 75,
+            bottom: 25,
+            width: '90%',
+            height: '70%'
+        },
+        explorer: {},
+        legend: {
+            position: 'top',
+            textStyle: {
+                color: 'gray',
+                fontSize: 12
+            }
+        },
+        crosshair: {
+            color: 'gray',
+            opacity: 0.5,
+            orientation: 'vertical',
+            trigger: 'both'
+        },
+        focusTarget: 'category',
+        tooltip: {
+            textStyle: {
+                color: 'black',
+                fontSize: 12
+            }
+        }
+    }
+
+    if(type == 'ComboChart'){
+        options.seriesType = 'bars',
+        options.series[1].type = 'line'
+    }
+
+    var graph = new google.visualization.ChartWrapper({
+        chartType: type,
+        containerId: 'graph-' + index,
+        dataTable: data,
+        options: options
+    });
+
+    graph.draw();
+}
+
+function buildMaterialGraph(data, index, type){
+    var graph = new google.visualization.ChartWrapper({
+        chartType: type,
+        containerId: 'graph-' + index,
+        dataTable: data,
+        options: {
+            animation: {
+                startup: true,
+                duration: 1000,
+                easing: 'out'
+            },
+            series: {
+                0: {axis: 0 },
+                1: {axis: 1 }
+            },
+            axes: {
+                y: {
+                    0: { },
+                    1: { }
+                },
+                x: {
+                    0: {
+                    }
+                }
+            },
+            width: '100%',
+            height: '100%',
+            legend: {
+                position: 'right',
+                textStyle: {
+                    color: 'black',
+                    fontSize: 16
+                }
+            }
+        }
+    });
+
+    graph.draw();
+}
+
+function reload(uri) {
+    var form = $('<form action="' + uri + '" method="get">' +
+        '<input type="text" name="metaData" value=\'' + JSON.stringify(chartMetaData) + '\' />' +
+        '</form>');
+    $('body').append(form);
+    form.submit();
+}
+
+function loadDashboard() {
+    var data, table;
+    buildFieldMap();
+
+    registerPaginationButtons();
+    registerPageSizeSelect();
+    registerApplyAndResetButtons();
+    registerchartFilters();
+    registerColumnFilter();
+    registerDateFilter();
+    registerGraphFilter();
+    registerWindowResize();
+    registerTemplates();
+    registerModeToggle();
+
+    data = buildDataTable();
+    table = buildTable(data);
+    registerCSVExport(table);
+    buildGraphs();
+
+}
+
+google.charts.load('43', {packages: ['line', 'bar', 'corechart', 'table']});
+google.charts.setOnLoadCallback(function () {
+    loadDashboard();
+}); 
+
+</script>

@@ -1,0 +1,35 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import util.charts._
+@(
+    chart: ClientChart,
+    cached_ad_group_changes: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: AuthenticatedRequest[Any])
+
+@import helper._
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Google AdGroups", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <h3 class="page-header">Google AdGroups
+                <span class="pull-right">
+                    <a href="/google/mcc/account/campaign/adgroup/new" class="btn btn-primary btn-xs">New AdGroup</a>
+                </span>
+            </h3>
+            @views.html.snippets.pending_cached_changes_alert(cached_ad_group_changes)
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            @{
+                snippets._client_chart(
+                    chartName="Campaigns",
+                    chart
+                )
+            }
+        </div>
+    </div>
+}

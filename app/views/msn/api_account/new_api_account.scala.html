@@ -1,0 +1,43 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    account_form: Form[models.mongodb.msn.Msn.ApiAccount],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+@main(title="adVanced - New Msn API Account", chart=false) {
+    @form(controllers.msn.api_account.routes.ApiAccountController.createApiAccount) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Msn API Account
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(account_form("name"), '_label -> "name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(account_form("userName"), '_label -> "Username", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(account_form("password"), '_label -> "Password", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(account_form("developerToken"), '_label -> "Developer Token", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+
+    }
+    @_bulk_import(bulk_import_errors, controllers.msn.api_account.routes.ApiAccountController.bulkNewApiAccount, "API Account(s)")
+}

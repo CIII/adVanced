@@ -1,0 +1,36 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest 
+@import helpers.google.mcc.account.campaign.adgroup.ad.TextAdControllerHelper._
+@import util.charts._
+@(
+    chart: ClientChart,
+    cached_text_ad_changes: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: AuthenticatedRequest[Any])
+
+@import helper._
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Google Text Ads", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <h3 class="page-header">Google Text Ads
+                <span class="pull-right">
+                    <a href="/google/mcc/account/campaign/adgroup/ad/text/new" class="btn btn-primary btn-xs">New Text Ad</a>
+                </span>
+            </h3> 
+        </div>
+        @views.html.snippets.pending_cached_changes_alert(cached_text_ad_changes)
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            @{ 
+                snippets._client_chart(
+                    chartName="Text Ads",
+                    chart
+                )  
+            }
+        </div>
+    </div>
+}

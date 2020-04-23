@@ -1,0 +1,80 @@
+@import helpers.google.mcc.account.campaign.adgroup.AdGroupControllerHelper
+@import helpers.google.mcc.account.campaign.adgroup.criterion.KeywordControllerHelper
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    keyword_form: Form[KeywordControllerHelper.KeywordForm],
+    ad_group_list:List[com.google.api.ads.adwords.axis.v201609.cm.AdGroup],
+    cached_ad_group_list: List[AdGroupControllerHelper.AdGroupForm],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import com.google.api.ads.adwords.axis.v201609.cm._
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - New Google Keyword", chart=false) {
+    @form(controllers.google.mcc.account.campaign.adgroup.criterion.routes.KeywordController.createKeyword) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Google Keyword
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("keyword.text"), '_label -> "Text", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @select(
+                        keyword_form("keyword.match_type"),
+                        options("" :: List(KeywordMatchType._BROAD, KeywordMatchType._EXACT, KeywordMatchType._PHRASE)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Match Type",
+                            'style -> "width:350px;",
+                            '_label -> "Match Type",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <div class="form-group">
+                    @inputText(keyword_form("destination_url"), '_label -> "Destination Url", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        keyword_form("status"),
+                        options("" :: List(UserStatus._ENABLED, UserStatus._PAUSED, UserStatus._REMOVED)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Status",
+                            'style -> "width:350px;",
+                            '_label -> "Status",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <div class="form-group has-warning">
+                    @select(
+                        keyword_form("ad_group_id"),
+                        options("" :: cached_ad_group_list.map(_.name + " - Pending") ::: ad_group_list.map(_.getName).toList),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "AdGroup",
+                            'style -> "width:350px;",
+                            '_label -> "Linked AdGroup",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+
+    }
+    @_bulk_import(bulk_import_errors, controllers.google.mcc.account.campaign.adgroup.criterion.routes.KeywordController.bulkNewKeyword, "Keyword(s)")
+}

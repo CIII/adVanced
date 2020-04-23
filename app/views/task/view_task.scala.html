@@ -1,0 +1,72 @@
+@import Shared.Shared.TaskStructure
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    task_id: Long,
+    task: TaskStructure,
+    runningTasks: List[TaskStructure]
+)(implicit request: AuthenticatedRequest[Any])
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - Task " + task_id, chart=false) {
+    <div class="row">
+        <br />
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                Task @task_id  -
+                    @if(!runningTasks.contains(task)) {
+                        <a href="/task/view/@task_id/run" class="btn btn-primary btn-xs"><b>Click to Re-Run</b></a>
+                    }
+            </div>
+            <div class="panel-body">
+                <div class="col-lg-12">
+                    <div class="panel panel-default">
+                            <!-- /.panel-heading -->
+                        <div class="panel-body">
+                                <!-- Nav tabs -->
+                            <ul class="nav nav-pills">
+                                <li class="active"><a href="#summary-pills" data-toggle="tab">Summary</a>
+                                </li>
+                                <li class=""><a href="#detailed-info-pills" data-toggle="tab">Detailed Info</a>
+                                </li>
+                                <li><a href="#log-output-pills" data-toggle="tab">Log Output</a>
+                                </li>
+                            </ul>
+
+                                <!-- Tab panes -->
+                            <div class="tab-content">
+                                <div class="tab-pane fade active in" id="summary-pills">
+                                    <h4>Summary</h4>
+                                    <p>
+                                        Failed after starting at @task.startTime.toString()
+                                        <br/>
+                                        @task.processes.count(x => x.completedSubProcesses == (if(x.subProcesses == 0) 1 else x.subProcesses)) out of @task.processes.size changes finished successfully.
+                                    </p>
+                                </div>
+                                <div class="tab-pane fade" id="detailed-info-pills">
+                                    <h4>Detailed Info</h4>
+                                    @for(data <- task.data) {
+                                        <h5>
+                                            @data.changeCategory.toString - @data.changeType.toString
+                                        </h5>
+                                        <p>
+                                            @com.mongodb.util.JSON.serialize(data.changeData)
+                                        </p>
+                                    }
+                                </div>
+                                <div class="tab-pane fade" id="log-output-pills">
+                                    <h4>Log Output</h4>
+                                    <p>Not Available</p>
+                                </div>
+                            </div>
+                        </div>
+                            <!-- /.panel-body -->
+                    </div>
+                        <!-- /.panel -->
+                </div>
+            </div>
+        </div>
+    </div>
+}

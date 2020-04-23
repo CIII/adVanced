@@ -1,0 +1,48 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    budget_form: Form[helpers.google.mcc.account.BudgetControllerHelper.BudgetForm],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+@import com.google.api.ads.adwords.axis.v201609.cm._
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - New Campaign Budget", chart=false) {
+    @form(controllers.google.mcc.account.routes.BudgetController.createBudget) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Google Budget
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(budget_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(budget_form("amount"), '_label -> "Amount", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        budget_form("deliveryMethod"),
+                        options("" :: List[String](BudgetBudgetDeliveryMethod.STANDARD.toString, BudgetBudgetDeliveryMethod.ACCELERATED.toString)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Delivery Method",
+                            'style -> "width:350px;",
+                            '_label -> "Delivery Method",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+    @_bulk_import(bulk_import_errors, controllers.google.mcc.account.routes.BudgetController.bulkNewBudget, "Campaign Budget(s)")
+}

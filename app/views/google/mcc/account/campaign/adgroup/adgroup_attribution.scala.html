@@ -1,0 +1,19 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import util.charts.performance.GooglePerformanceCharts._
+
+@(chart: GoogleAdGroupPerformanceChart
+)(implicit request: AuthenticatedRequest[Any])
+
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Google Ad Groups", chart=false) {
+	@{
+    	snippets._chart(
+            chartName="Google Ad Groups",
+            chart=chart
+        )
+   	}
+}

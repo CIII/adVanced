@@ -1,0 +1,73 @@
+@(login_form: Form[Option[models.mongodb.UserAccount]])(implicit request: Request[Any], messages: Messages)
+    @import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+<!DOCTYPE html>
+    <html xmlns="http://www.w3.org/1999/html" lang="en">
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta name="description" content="">
+            <meta name="author" content="Clarence Williams III">
+
+            <title>adVanced - Login</title>
+
+                <!-- Bootstrap Core CSS -->
+            <link href="@routes.Assets.versioned("stylesheets/bootstrap.min.css")" rel="stylesheet">
+
+                <!-- MetisMenu CSS -->
+            <link href="@routes.Assets.versioned("stylesheets/plugins/metisMenu/metisMenu.min.css")" rel="stylesheet">
+
+                <!-- Custom CSS -->
+            <link href="@routes.Assets.versioned("stylesheets/sb-admin-2.css")" rel="stylesheet">
+
+                <!-- Custom Fonts -->
+            <link href="@routes.Assets.versioned("stylesheets/font-awesome-4.1.0/css/font-awesome.min.css")" rel="stylesheet" type="text/css">
+
+                <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+                <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+                <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+        </head>
+        <body>
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-4 col-md-offset-4">
+                        <div class="login-panel panel panel-default" style="border:0">
+                    <a class="navbar-brand" href="/"><img src="@routes.Assets.versioned("images/icons-ppc.png")" height="70" width="70" />
+                        <i>ad</i><b>Vanced</b></a>
+                            </div></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 col-md-offset-4">
+                        <div class="login-panel panel panel-default" style="margin-top: 10%;">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">Please Sign In</h3>
+                            </div>
+                            <div class="panel-body">
+                             @form(controllers.routes.ApplicationController.authenticate) {
+                             	<fieldset>
+                                	<div class="form-group">
+                                    @inputText(login_form("username"), '_label -> "Username", 'class -> "form-control", '_showConstraints -> false)
+                                    </div>
+                                    <div class="form-group">
+                                    @inputPassword(login_form("password"), '_label -> "Password", 'class -> "form-control", '_showConstraints -> false)
+                                    </div>
+                                        <!-- Change this to a button or input when using this as a form -->
+                                    <button type="submit" class="btn btn-lg btn-success btn-block">Login</button>
+                                    @for(error <- login_form.errors) {
+                                        <br /><span style="color: red;">@error.message</span>
+                                    }
+                                 </fieldset>
+                             }
+ 							</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+    </html>

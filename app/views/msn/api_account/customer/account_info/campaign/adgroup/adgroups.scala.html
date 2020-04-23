@@ -1,0 +1,92 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    currentPageData: List[com.microsoft.bingads.v11.campaignmanagement.AdGroup],
+    currentPage: Int,
+    currentPageSize: Int,
+    currentOrderBy: Int,
+    currentFilter: String,
+    totalCount: Int,
+    cached_adgroup_changes: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: AuthenticatedRequest[Any])
+
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Msn AdGroups", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <table>
+                <tr>
+                    <td>
+                        <h3 class="page-header">Msn AdGroups</h3>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <!-- /.row -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    @totalCount AdGroup(s)
+                </div>
+                    <!-- /.panel-heading -->
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <div id="dataTables_wrapper" class="dataTables_wrapper form-inline" role="grid">
+                            <div class="row">
+                                @views.html.snippets.pagination_size(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    currentFilter,
+                                    controllers.msn.api_account.customer.account.campaign.adgroup.routes.AdGroupController.adgroups
+                                )
+                                @views.html.snippets.search()
+                            </div>
+                            <table class="table-striped table-bordered table-hover dataTable no-footer" style="width: 100%;" id="dataTables" aria-describedby="dataTables_info">
+                                @views.html.snippets.table_header(
+                                    List(
+                                        ("api id", 1, 1),
+                                        ("name", 1, 1),
+                                        ("start date", 1, 1),
+                                        ("end date", 1, 1),
+                                        ("status", 1, 1)
+                                    )
+                                )
+                                <tbody>
+                                    @currentPageData.map { adgroup =>
+                                        <tr class="gradeA odd">
+                                            <td class=" ">@adgroup.getId</td>
+                                            <td class=" ">@adgroup.getName</td>
+                                            <td class="center ">@adgroup.getStartDate.getYear/@adgroup.getStartDate.getMonth/@adgroup.getStartDate.getDay</td>
+                                            <td class="center ">@adgroup.getEndDate.getYear/@adgroup.getEndDate.getMonth/@adgroup.getEndDate.getDay</td>
+                                            <td class="center ">@adgroup.getStatus.toString</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <div class="row">
+                                @views.html.snippets.showing_text(currentPageSize, currentPage, totalCount)
+                                @views.html.snippets.pagination_buttons(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    totalCount,
+                                    currentFilter,
+                                    controllers.msn.api_account.customer.account.campaign.adgroup.routes.AdGroupController.adgroups
+                                )
+                            </div>
+                        </div>
+                    </div>
+                        <!-- /.table-responsive -->
+                </div>
+                    <!-- /.panel-body -->
+            </div>
+                <!-- /.panel -->
+        </div>
+    </div>
+}

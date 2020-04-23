@@ -1,0 +1,45 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    campaign_proximity_form: Form[helpers.google.mcc.account.campaign.criterion.CampaignProximityControllerHelper.CampaignProximityForm],
+    campaign_list: List[com.google.api.ads.adwords.axis.v201609.cm.Campaign],
+    cached_campaign_list: List[helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignForm],
+        bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messagesApi: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - Edit Google Campaign Proximity", chart=false) {
+    @form(controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.createCampaignProximity) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Google Campaign Proximity
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @select(
+                        campaign_proximity_form("parent.campaignApiId"),
+                        options("" :: campaign_list.map(_.getName).toList),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Campaign",
+                            'style -> "width:350px;",
+                            '_label -> "Linked Campaign",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+
+    }
+    @_bulk_import(bulk_import_errors, controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.bulkNewCampaignProximity, "Campaign Proximity")
+}

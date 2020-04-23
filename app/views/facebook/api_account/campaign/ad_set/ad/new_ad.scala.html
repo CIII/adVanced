@@ -1,0 +1,64 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import helpers.facebook.api_account.campaign.ad_set.ad.AdControllerHelper._
+@import helpers.facebook._
+@(
+    ad_form: Form[helpers.facebook.api_account.campaign.ad_set.ad.AdControllerHelper.AdForm],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+@main(title="adVanced - New Facebook Ad", chart=false) {
+    @form(controllers.facebook.api_account.campaign.ad_set.routes.AdSetController.createAdSet) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Facebook Ad
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                        @inputText(ad_form("apiId"), '_label -> "Api ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        @select(ad_form("accountId"), accountOptions, '_label -> "Account ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        @select(ad_form("campaignId"), campaignOptions, '_label -> "Campaign ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        @select(ad_form("adSetId"), adSetOptions, '_label -> "AdSet ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        @inputText(ad_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                        @inputText(ad_form("adLabels"), '_label -> "Ad Labels", 'class -> "form-control", '_showConstraints -> false)
+                        @inputText(ad_form("adCreatives"), '_label -> "Ad Creatives", 'class -> "form-control", '_showConstraints -> false)
+                        @inputText(ad_form("bidAmount"), '_label -> "Bid Amount", 'class -> "form-control", '_showConstraints -> false)
+                        @select(ad_form("status"), statusOptions, '_label -> "Status", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        @inputText(ad_form("adLabels"), '_label -> "Ad Labels", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        @inputText(ad_form("adCreatives"), '_label -> "Ad Creatives", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        @inputText(ad_form("bidAmount"), '_label -> "Bid Amount", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                        @select(ad_form("status"), statusOptions, '_label -> "Status", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+
+    }
+    @_bulk_import(bulk_import_errors, controllers.facebook.api_account.campaign.ad_set.ad.routes.AdController.bulkNewAd, "Ad(s)")
+}

@@ -1,0 +1,55 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    campaign_form: Form[helpers.msn.api_account.customer.account.campaign.CampaignControllerHelper.CampaignForm],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+
+@main(title="adVanced - New Msn Campaign", chart=false) {
+    @form(controllers.msn.api_account.customer.account.campaign.routes.CampaignController.createCampaign) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Msn Account
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(campaign_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(campaign_form("description"), '_label -> "Description", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(campaign_form("budget_type"), '_label -> "Budget Type", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(campaign_form("daylight_saving"), '_label -> "Daylight Saving", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(campaign_form("daily_budget"), '_label -> "Daily Budget", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(campaign_form("monthly_budget"), '_label -> "Monthly Budget", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(campaign_form("status"), '_label -> "Status", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(campaign_form("time_zone"), '_label -> "Time Zone", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+
+    }
+    @_bulk_import(bulk_import_errors, controllers.msn.api_account.customer.account.campaign.routes.CampaignController.bulkNewCampaign, "Campaign(s)")
+}

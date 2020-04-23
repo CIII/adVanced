@@ -1,0 +1,156 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import models.mongodb.UserAccount
+@import helper._
+@(
+    user_profile_form: Form[helpers.UserProfileControllerHelper.UserProfileForm],
+    avail_security_roles: List[models.mongodb.SecurityRole]
+    
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+
+@isAdministrator = @{
+	val user = request.subject.get.asInstanceOf[UserAccount]	// get logged in user
+	UserAccount.isAdministrator(user)							// if user is admin, allow changes
+}
+
+@securityRolesStr = @{
+	user_profile_form.data.get("security_roles_str").getOrElse("")
+}
+
+@accountUsername = @{
+	val user = request.subject.get.asInstanceOf[UserAccount]
+	user_profile_form.data.get("username").getOrElse("")
+}
+
+@isNewUser = @{accountUsername.isEmpty}
+@isLoggedInUser = @{
+	val user = request.subject.get.asInstanceOf[UserAccount]
+	accountUsername.equals(user.userName)
+}
+	
+
+@main(title="adVanced - User Profile", chart=false) {
+    @form(controllers.routes.UserProfileController.save()) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    @{
+                    	if(isNewUser){
+             	        		"New User Profile"
+                    	} else {
+                    		"Edit User Profile"
+                    	}
+                    }
+                </div>
+                <div class="panel-body">
+	               	<input type="hidden" name="_id" id="_id" 
+	               	value="@user_profile_form.data.get("_id")" />
+	               	<input type="hidden" name="password" id="password" 
+	               	value="@user_profile_form.data.get("password")" />
+	               	<input type="hidden" name="security_roles_str" id="security_roles_str" 
+	               	value="@user_profile_form.data.get("security_roles_str")" />
+                	<div class="form-group">
+                		@{
+                			if(isNewUser){
+	                			inputText(
+		                 			user_profile_form("username"), 
+		                 			'_label -> "Username", 
+		                 			'class -> "form-control", 
+		                 			'_showConstraints -> false
+		                 		)
+                			} else {
+	                			inputText(
+		                 			user_profile_form("username"), 
+		                 			'_label -> "Username", 
+		                 			'class -> "form-control", 
+		                 			'_showConstraints -> false, 
+		                 			'readonly -> "readonly"
+		                 		)
+		                	}
+                		}
+                	</div>
+                	<div class="form-group">
+                		@{
+                			if(isAdministrator){
+                        		inputText(
+	                        		user_profile_form("email"), 
+	                        		'type -> "email", 
+	                        		'_label -> "Email", 
+	                        		'class -> "form-control", 
+	                        		'_showConstraints -> false
+                       			)
+                			} else {
+                        		inputText(
+                        			user_profile_form("email"), 
+                        			'type -> "email", 
+                        			'_label -> "Email", 
+                        			'class -> "form-control", 
+                        			'_showConstraints -> false, 
+                        			'readonly -> "readonly"
+                       			)
+                			}
+                		}
+                	</div>
+                	<dl class="form-group" id="advertiser_ids_field">
+                   		<dt>
+                   			<label for="advertiser_ids">Advertiser Ids (As comma separated list)</label>
+                  			</dt>
+                   		<dd>
+	                    	<input type="text" name="advertiserIds" id="advertiserIds" class="form-control"
+	                    		value="@user_profile_form.data.get("advertiserIds")"
+	                    		@if(!isAdministrator){ readonly="readonly" } />
+                    	</dd>
+                  	</dl>
+                    <label for="security-roles">Security Roles</label>
+                    <div id="security-roles" class="form-group">
+                        @for((role, index) <- avail_security_roles.zipWithIndex) {
+	                       	<details class="panel">
+	                       		<summary class="summary" >
+	                       			<input type="checkbox" 
+	                       				id="@{s"security_roles[${index}]"}"
+	                       				name="@{s"security_roles[${index}]"}"
+	                       				value="@role.roleName"
+	                       				@if(securityRolesStr contains role.roleName){ checked="checked" }
+	                       				@if(!isAdministrator){ disabled="disabled" }
+                       				/>
+                       				@if(!isAdministrator){
+                       					<input type="hidden"
+		                       				id="@{s"security_roles[${index}]"}"
+		                       				name="@{s"security_roles[${index}]"}"
+		                       				value="@role.roleName"/>
+                       				}
+                       				@role.roleName
+                   				</summary>
+	                     		<ul class="list-group">
+	                     			@for(permGroup <- role.permissions){
+	                     				<li class="list-group-item">
+	                     					@permGroup.toString
+	                     				</li>
+	                     			}
+	                     		</ul>
+	                       	</details>
+                        }
+                    </div>
+                    @if(!isNewUser){
+	                    <label for="password_change_reset">Password</label>
+	                    <div id="password_change_reset" class="form-group">
+	                    	@if(isLoggedInUser){
+	                    		<a class="btn btn-primary" href="/password-change">Change</a>
+	                 		} else {
+	           					<a class="btn btn-primary" href="/user-profile/@{accountUsername}/password-reset">Reset</a>
+	                   		}
+	                    </div>
+                    }
+                    <br/>
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+}

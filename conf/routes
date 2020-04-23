@@ -1,0 +1,536 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# adVanced Dashboard
+
+GET         /dashboard                                                                           @controllers.DashboardController.dashboard
+GET			/advertiser/:advertiserId/															 @controllers.advertisers.AdvertiserController.advertiser(advertiserId: Int)
+GET         /                                                                                    @controllers.ApplicationController.login
+POST        /                                                                                    @controllers.ApplicationController.authenticate
+
+# Google Reporting API
+
+POST        /google/reporting/json                                                                @controllers.google.reporting.ReportingController.json(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+GET        /google/reporting/json                                                                @controllers.google.reporting.ReportingController.json(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+
+POST        /google/reporting/csv                                                                @controllers.google.reporting.ReportingController.csv(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+GET        /google/reporting/csv                                                                @controllers.google.reporting.ReportingController.csv(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+
+# Google MCC Account Management
+
+GET         /google/mcc/                                                                         @controllers.google.mcc.MccController.mcc
+
+POST        /google/mcc/json                                                                     @controllers.google.mcc.MccController.json
+GET         /google/mcc/json                                                                     @controllers.google.mcc.MccController.json
+
+GET         /google/mcc/new                                                                      @controllers.google.mcc.MccController.newMcc
+POST        /google/mcc/new                                                                      @controllers.google.mcc.MccController.createMcc
+
+GET         /google/mcc/:object_id/                                                              @controllers.google.mcc.MccController.editMcc(object_id)
+POST        /google/mcc/:object_id/                                                              @controllers.google.mcc.MccController.saveMcc(object_id)
+
+GET         /google/mcc/bulk                                                                     @controllers.google.mcc.MccController.bulkNewMcc
+
+
+# Google Account Management
+
+GET         /google/mcc/account                                                                 @controllers.google.mcc.account.AccountController.accounts
+
+GET         /google/mcc/account/json                                                             @controllers.google.mcc.account.AccountController.json
+POST        /google/mcc/account/json                                                             @controllers.google.mcc.account.AccountController.json
+GET			/google/mcc/account/attribution														@controllers.google.mcc.account.AccountController.attribution
+GET			/google/mcc/account/attribution/csv														@controllers.google.mcc.account.AccountController.attributionCSV
+
+# Google Geo Management
+
+GET			/google/mcc/account/geo/attribution													@controllers.google.mcc.account.geo.GeoController.attribution
+GET			/google/mcc/account/geo/attribution/csv												@controllers.google.mcc.account.geo.GeoController.attributionCSV
+
+# Google Campaign Management
+
+GET         /google/mcc/account/campaign/attribution                                             @controllers.google.mcc.account.campaign.CampaignController.attribution
+GET         /google/mcc/account/campaign/attribution/csv                                         @controllers.google.mcc.account.campaign.CampaignController.attributionCSV
+
+GET         /google/mcc/account/campaign/                                                        @controllers.google.mcc.account.campaign.CampaignController.campaigns(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+GET         /google/mcc/account/campaign/json                                                    @controllers.google.mcc.account.campaign.CampaignController.json
+POST        /google/mcc/account/campaign/json                                                    @controllers.google.mcc.account.campaign.CampaignController.json
+
+GET         /google/mcc/account/campaign/bulk                                                    @controllers.google.mcc.account.campaign.CampaignController.bulkNewCampaign
+
+POST        /google/mcc/account/campaign/new                                                     @controllers.google.mcc.account.campaign.CampaignController.createCampaign
+GET         /google/mcc/account/campaign/new                                                     @controllers.google.mcc.account.campaign.CampaignController.newCampaign
+
+GET         /google/mcc/account/campaign/$api_id<[0-9]+>/                                        @controllers.google.mcc.account.campaign.CampaignController.editCampaign(api_id: Long)
+POST        /google/mcc/account/campaign/$api_id<[0-9]+>/                                        @controllers.google.mcc.account.campaign.CampaignController.saveCampaign(api_id: Long)
+
+POST        /google/mcc/account/campaign/$api_id<[0-9]+>/delete                                  @controllers.google.mcc.account.campaign.CampaignController.deleteCampaign(api_id: Long)
+
+
+GET         /google/mcc/account/campaign/criterion/keyword                                       @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.campaignKeywords(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+GET         /google/mcc/account/campaign/criterion/keyword/json                                  @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.json
+POST        /google/mcc/account/campaign/criterion/keyword/json                                  @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.json
+
+
+GET         /google/mcc/account/campaign/criterion/keyword/bulk                                  @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.bulkNewCampaignKeyword
+
+POST        /google/mcc/account/campaign/criterion/keyword/new                                   @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.createCampaignKeyword
+GET         /google/mcc/account/campaign/criterion/keyword/new                                   @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.newCampaignKeyword
+
+POST        /google/mcc/account/campaign/criterion/keyword/$api_id<[0-9]+>                       @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.saveCampaignKeyword(api_id: Long)
+GET         /google/mcc/account/campaign/criterion/keyword/$api_id<[0-9]+>                       @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.editCampaignKeyword(api_id: Long)
+
+POST        /google/mcc/account/campaign/criterion/keyword/$api_id<[0-9]+>/delete                @controllers.google.mcc.account.campaign.criterion.CampaignKeywordController.deleteCampaignKeyword(api_id: Long)
+
+GET         /google/mcc/account/campaign/criterion/ad-schedule                                   @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.campaignAdSchedule(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+GET         /google/mcc/account/campaign/criterion/ad-schedule/json                              @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.json
+POST        /google/mcc/account/campaign/criterion/ad-schedule/json                              @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.json
+
+
+GET         /google/mcc/account/campaign/criterion/ad-schedule/bulk                              @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.bulkNewCampaignAdSchedule
+
+POST        /google/mcc/account/campaign/criterion/ad-schedule/new                               @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.createCampaignAdSchedule
+GET         /google/mcc/account/campaign/criterion/ad-schedule/new                               @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.newCampaignAdSchedule
+
+POST        /google/mcc/account/campaign/criterion/ad-schedule/$api_id<[0-9]+>                   @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.saveCampaignAdSchedule(api_id: Long)
+GET         /google/mcc/account/campaign/criterion/ad-schedule/$api_id<[0-9]+>                   @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.editCampaignAdSchedule(api_id: Long)
+
+POST        /google/mcc/account/campaign/criterion/ad-schedule/$api_id<[0-9]+>/delete            @controllers.google.mcc.account.campaign.criterion.CampaignAdScheduleController.deleteCampaignAdSchedule(api_id: Long)
+
+GET         /google/mcc/account/campaign/criterion/proximity                                     @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.campaignProximity(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+GET         /google/mcc/account/campaign/criterion/proximity/json                                @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.json
+POST        /google/mcc/account/campaign/criterion/proximity/json                                @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.json
+
+
+GET         /google/mcc/account/campaign/criterion/proximity/bulk                                @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.bulkNewCampaignProximity
+
+POST        /google/mcc/account/campaign/criterion/proximity/new                                 @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.createCampaignProximity
+GET         /google/mcc/account/campaign/criterion/proximity/new                                 @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.newCampaignProximity
+
+POST        /google/mcc/account/campaign/criterion/proximity/$api_id<[0-9]+>                     @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.saveCampaignProximity(api_id: Long)
+GET         /google/mcc/account/campaign/criterion/proximity/$api_id<[0-9]+>                     @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.editCampaignProximity(api_id: Long)
+
+POST        /google/mcc/account/campaign/criterion/proximity/$api_id<[0-9]+>/delete              @controllers.google.mcc.account.campaign.criterion.CampaignProximityController.deleteCampaignProximity(api_id: Long)
+
+# Google Budget Management
+
+GET         /google/mcc/account/campaign/criterion/budget                                        @controllers.google.mcc.account.BudgetController.budgets(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+GET         /google/mcc/account/campaign/criterion/budget/json                                   @controllers.google.mcc.account.BudgetController.json
+POST        /google/mcc/account/campaign/criterion/budget/json                                   @controllers.google.mcc.account.BudgetController.json
+
+
+GET         /google/mcc/account/campaign/criterion/budget/bulk                                   @controllers.google.mcc.account.BudgetController.bulkNewBudget
+
+POST        /google/mcc/account/campaign/criterion/budget/new                                    @controllers.google.mcc.account.BudgetController.createBudget
+GET         /google/mcc/account/campaign/criterion/budget/new                                    @controllers.google.mcc.account.BudgetController.newBudget
+
+POST        /google/mcc/account/campaign/criterion/budget/$api_id<[0-9]+>                        @controllers.google.mcc.account.BudgetController.saveBudget(api_id: Long)
+GET         /google/mcc/account/campaign/criterion/budget/$api_id<[0-9]+>                        @controllers.google.mcc.account.BudgetController.editBudget(api_id: Long)
+POST        /google/mcc/account/campaign/criterion/budget/$api_id<[0-9]+>/delete                 @controllers.google.mcc.account.BudgetController.deleteBudget(api_id: Long)
+
+POST 		/google/mcc/account/campaign/criterion/budget/$budget_id<[0-9]+>/amount				 @controllers.google.mcc.account.BudgetController.amount(budget_id: Long)
+
+
+# Google AdGroup Management
+
+GET         /google/mcc/account/campaign/adgroup/                                                @controllers.google.mcc.account.campaign.adgroup.AdGroupController.adGroups
+
+GET         /google/mcc/account/campaign/adgroup/json                                            @controllers.google.mcc.account.campaign.adgroup.AdGroupController.json
+POST        /google/mcc/account/campaign/adgroup/json                                            @controllers.google.mcc.account.campaign.adgroup.AdGroupController.json
+
+
+GET         /google/mcc/account/campaign/adgroup/bulk                                            @controllers.google.mcc.account.campaign.adgroup.AdGroupController.bulkNewAdGroup
+
+POST        /google/mcc/account/campaign/adgroup/new                                             @controllers.google.mcc.account.campaign.adgroup.AdGroupController.createAdGroup
+GET         /google/mcc/account/campaign/adgroup/new                                             @controllers.google.mcc.account.campaign.adgroup.AdGroupController.newAdGroup
+
+GET         /google/mcc/account/campaign/adgroup/$api_id<[0-9]+>/                                @controllers.google.mcc.account.campaign.adgroup.AdGroupController.editAdGroup(api_id: Long)
+POST        /google/mcc/account/campaign/adgroup/$api_id<[0-9]+>/                                @controllers.google.mcc.account.campaign.adgroup.AdGroupController.saveAdGroup(api_id: Long)
+POST        /google/mcc/account/campaign/adgroup/$api_id<[0-9]+>/delete                          @controllers.google.mcc.account.campaign.adgroup.AdGroupController.deleteAdGroup(api_id: Long)
+
+POST		/google/mcc/account/campaign/adgroup/$adgroup_id<[0-9]+>/maxcpc								 @controllers.google.mcc.account.campaign.adgroup.AdGroupController.maxCpc(adgroup_id: Long)
+
+GET			/google/mcc/account/campaign/adgroup/attribution									 @controllers.google.mcc.account.campaign.adgroup.AdGroupController.attribution
+GET			/google/mcc/account/campaign/adgroup/attribution/csv								 @controllers.google.mcc.account.campaign.adgroup.AdGroupController.attributionCSV
+
+# Google Ad Management (Non Text/Image specific)
+
+GET			/google/mcc/account/campaign/adgroup/ad/attribution									 @controllers.google.mcc.account.campaign.adgroup.ad.AdController.attribution
+GET			/google/mcc/account/campaign/adgroup/ad/attribution/csv								 @controllers.google.mcc.account.campaign.adgroup.ad.AdController.attributionCSV
+
+# Google TextAd Management
+
+GET         /google/mcc/account/campaign/adgroup/ad/text                                         @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.textAds
+GET         /google/mcc/account/campaign/adgroup/ad/text/json                                    @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.json
+POST        /google/mcc/account/campaign/adgroup/ad/text/json                                    @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.json
+
+
+GET         /google/mcc/account/campaign/adgroup/ad/text/bulk                                    @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.bulkNewTextAd
+
+POST        /google/mcc/account/campaign/adgroup/ad/text/new                                     @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.createTextAd
+GET         /google/mcc/account/campaign/adgroup/ad/text/new                                     @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.newTextAd
+
+GET         /google/mcc/account/campaign/adgroup/ad/text/$api_id<[0-9]+>/                         @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.editTextAd(api_id: Long)
+POST        /google/mcc/account/campaign/adgroup/ad/text/$api_id<[0-9]+>/                         @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.saveTextAd(api_id: Long)
+
+POST        /google/mcc/account/campaign/adgroup/ad/text/$api_id<[0-9]+>/delete                  @controllers.google.mcc.account.campaign.adgroup.ad.TextAdController.deleteTextAd(api_id: Long)
+
+# Google ImageAd Management
+
+GET         /google/mcc/account/campaign/adgroup/ad/image                                        @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.imageAds
+
+GET         /google/mcc/account/campaign/adgroup/ad/image/json                                   @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.json
+POST        /google/mcc/account/campaign/adgroup/ad/image/json                                   @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.json
+
+
+GET         /google/mcc/account/campaign/adgroup/ad/image/bulk                                   @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.bulkNewImageAd
+
+POST        /google/mcc/account/campaign/adgroup/ad/image/new                                    @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.createImageAd
+GET         /google/mcc/account/campaign/adgroup/ad/image/new                                    @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.newImageAd
+
+GET         /google/mcc/account/campaign/adgroup/ad/image/$api_id<[0-9]+>/                        @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.editImageAd(api_id: Long)
+POST        /google/mcc/account/campaign/adgroup/ad/image/$api_id<[0-9]+>/                        @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.saveImageAd(api_id: Long)
+
+POST        /google/mcc/account/campaign/adgroup/ad/image/$api_id<[0-9]+>/delete                 @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.deleteImageAd(api_id: Long)
+
+# Google Keyword Management
+
+GET         /google/mcc/account/campaign/adgroup/criterion/keyword                               @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.keywords(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+GET         /google/mcc/account/campaign/adgroup/criterion/keyword/json                          @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.json
+POST         /google/mcc/account/campaign/adgroup/criterion/keyword/json                         @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.json
+
+
+POST        /google/mcc/account/campaign/adgroup/criterion/keyword/bulk                          @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.bulkNewKeyword
+
+POST        /google/mcc/account/campaign/adgroup/criterion/keyword/new                           @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.createKeyword
+GET         /google/mcc/account/campaign/adgroup/criterion/keyword/new                           @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.newKeyword
+
+GET         /google/mcc/account/campaign/adgroup/criterion/keyword/$api_id<[0-9]+>               @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.editKeyword(api_id: Long)
+POST        /google/mcc/account/campaign/adgroup/criterion/keyword/$api_id<[0-9]+>               @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.saveKeyword(api_id: Long)
+
+POST        /google/mcc/account/campaign/adgroup/criterion/keyword/$api_id<[0-9]+>/delete        @controllers.google.mcc.account.campaign.adgroup.criterion.KeywordController.deleteKeyword(api_id: Long)
+
+
+# MSN Reporting API
+
+POST        /msn/reporting/json                                                                @controllers.msn.reporting.ReportingController.json(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+GET        /msn/reporting/json                                                                @controllers.msn.reporting.ReportingController.json(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+
+POST        /msn/reporting/csv                                                                @controllers.msn.reporting.ReportingController.csv(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+GET        /msn/reporting/csv                                                                @controllers.msn.reporting.ReportingController.csv(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+
+
+# MSN API Account Management
+
+GET         /msn/api_account                                                                @controllers.msn.api_account.ApiAccountController.api_accounts(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /msn/api_account/new                                                            @controllers.msn.api_account.ApiAccountController.createApiAccount
+GET         /msn/api_account/new                                                            @controllers.msn.api_account.ApiAccountController.newApiAccount
+
+GET         /msn/api_account/:object_id/                                                    @controllers.msn.api_account.ApiAccountController.editApiAccount(object_id)
+POST        /msn/api_account/:object_id/                                                    @controllers.msn.api_account.ApiAccountController.saveApiAccount(object_id)
+
+GET         /msn/api_account/bulk                                                           @controllers.msn.api_account.ApiAccountController.bulkNewApiAccount
+
+
+# MSN Account Info Management
+
+GET         /msn/api_account/customer/account_info                                          @controllers.msn.api_account.customer.account.AccountInfoController.account_infos(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+# MSN Customer Management
+
+GET         /msn/customer                                                                        @controllers.msn.api_account.customer.CustomerController.customers(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /msn/customer/new                                                                    @controllers.msn.api_account.customer.CustomerController.createCustomer
+GET         /msn/customer/new                                                                    @controllers.msn.api_account.customer.CustomerController.newCustomer
+
+GET         /msn/customer/:object_id/                                                            @controllers.msn.api_account.customer.CustomerController.editCustomer(object_id)
+POST        /msn/customer/:object_id/                                                            @controllers.msn.api_account.customer.CustomerController.saveCustomer(object_id)
+
+GET         /msn/customer/bulk                                                                   @controllers.msn.api_account.customer.CustomerController.bulkNewCustomer
+
+
+
+# MSN Campaign Management
+
+GET         /msn/customer/account/campaign                                                       @controllers.msn.api_account.customer.account.campaign.CampaignController.campaigns(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /msn/customer/account/campaign/new                                                   @controllers.msn.api_account.customer.account.campaign.CampaignController.createCampaign
+GET         /msn/customer/account/campaign/new                                                   @controllers.msn.api_account.customer.account.campaign.CampaignController.newCampaign
+
+GET         /msn/customer/account/campaign/:object_id/                                           @controllers.msn.api_account.customer.account.campaign.CampaignController.editCampaign(object_id)
+POST        /msn/customer/account/campaign/:object_id/                                           @controllers.msn.api_account.customer.account.campaign.CampaignController.saveCampaign(object_id)
+
+GET         /msn/customer/account/campaign/bulk                                                  @controllers.msn.api_account.customer.account.campaign.CampaignController.bulkNewCampaign
+
+# MSN AdGroup Management
+
+GET         /msn/customer/account/campaign/adgroup                                               @controllers.msn.api_account.customer.account.campaign.adgroup.AdGroupController.adgroups(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /msn/customer/account/campaign/adgroup/new                                           @controllers.msn.api_account.customer.account.campaign.adgroup.AdGroupController.createAdGroup
+GET         /msn/customer/account/campaign/adgroup/new                                           @controllers.msn.api_account.customer.account.campaign.adgroup.AdGroupController.newAdGroup
+
+GET         /msn/customer/account/campaign/adgroup/:object_id/                                   @controllers.msn.api_account.customer.account.campaign.adgroup.AdGroupController.editAdGroup(object_id)
+POST        /msn/customer/account/campaign/adgroup/:object_id/                                   @controllers.msn.api_account.customer.account.campaign.adgroup.AdGroupController.saveAdGroup(object_id)
+
+GET         /msn/customer/account/campaign/adgroup/bulk                                          @controllers.msn.api_account.customer.account.campaign.adgroup.AdGroupController.bulkNewAdGroup
+
+# Yahoo Gemini Reporting API
+
+POST        /yahoo/reporting/json                                                                @controllers.yahoo.reporting.ReportingController.json(reportType: String ?="", advertiserId: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+GET        /yahoo/reporting/json                                                                @controllers.yahoo.reporting.ReportingController.json(reportType: String ?="", advertiserId: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+
+POST        /yahoo/reporting/csv                                                                @controllers.yahoo.reporting.ReportingController.csv(reportType: String ?="", advertiserId: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+GET        /yahoo/reporting/csv                                                                @controllers.yahoo.reporting.ReportingController.csv(reportType: String ?="", advertiserId: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+
+# Yahoo Gemini API Account Management
+
+GET         /yahoo/api_account                                                                   @controllers.yahoo.api_account.ApiAccountController.api_account(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /yahoo/api_account/new                                                               @controllers.yahoo.api_account.ApiAccountController.createApiAccount
+GET         /yahoo/api_account/new                                                               @controllers.yahoo.api_account.ApiAccountController.newApiAccount
+
+GET         /yahoo/api_account/:object_id/                                                       @controllers.yahoo.api_account.ApiAccountController.editApiAccount(object_id)
+POST        /yahoo/api_account/:object_id/                                                       @controllers.yahoo.api_account.ApiAccountController.saveApiAccount(object_id)
+
+POST        /yahoo/api_account/:object_id/delete                                                 @controllers.yahoo.api_account.ApiAccountController.deleteApiAccount(object_id)
+
+GET         /yahoo/api_account/json                                                              @controllers.yahoo.api_account.ApiAccountController.json
+POST        /yahoo/api_account/json                                                              @controllers.yahoo.api_account.ApiAccountController.json
+
+GET         /yahoo/api_account/bulk                                                              @controllers.yahoo.api_account.ApiAccountController.bulkNewApiAccount
+
+
+# Yahoo Gemini Advertiser Management
+
+GET         /yahoo/api_account/advertiser                                                        @controllers.yahoo.api_account.advertiser.AdvertiserController.advertiser(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /yahoo/api_account/advertiser/new                                                    @controllers.yahoo.api_account.advertiser.AdvertiserController.createAdvertiser
+GET         /yahoo/api_account/advertiser/new                                                    @controllers.yahoo.api_account.advertiser.AdvertiserController.newAdvertiser
+
+GET         /yahoo/api_account/advertiser/$api_id<[0-9]+>                                        @controllers.yahoo.api_account.advertiser.AdvertiserController.editAdvertiser(api_id)
+POST        /yahoo/api_account/advertiser/$api_id<[0-9]+>                                        @controllers.yahoo.api_account.advertiser.AdvertiserController.saveAdvertiser(api_id)
+
+POST        /yahoo/api_account/advertiser/$api_id<[0-9]+>/delete                                 @controllers.yahoo.api_account.advertiser.AdvertiserController.deleteAdvertiser(api_id)
+
+GET         /yahoo/api_account/advertiser/json                                                   @controllers.yahoo.api_account.advertiser.AdvertiserController.json
+POST        /yahoo/api_account/advertiser/json                                                   @controllers.yahoo.api_account.advertiser.AdvertiserController.json
+
+GET         /yahoo/api_account/advertiser/bulk                                                   @controllers.yahoo.api_account.advertiser.AdvertiserController.bulkNewAdvertiser
+
+# Yahoo Gemini Campaign Management
+
+GET         /yahoo/api_account/advertiser/campaign                                               @controllers.yahoo.api_account.advertiser.campaign.CampaignController.campaign
+
+POST        /yahoo/api_account/advertiser/campaign/new                                           @controllers.yahoo.api_account.advertiser.campaign.CampaignController.createCampaign
+GET         /yahoo/api_account/advertiser/campaign/new                                           @controllers.yahoo.api_account.advertiser.campaign.CampaignController.newCampaign
+
+GET         /yahoo/api_account/advertiser/campaign/$api_id<[0-9]+>                               @controllers.yahoo.api_account.advertiser.campaign.CampaignController.editCampaign(api_id)
+POST        /yahoo/api_account/advertiser/campaign/$api_id<[0-9]+>                               @controllers.yahoo.api_account.advertiser.campaign.CampaignController.saveCampaign(api_id)
+
+POST        /yahoo/api_account/advertiser/campaign/$api_id<[0-9]+>/delete                        @controllers.yahoo.api_account.advertiser.campaign.CampaignController.deleteCampaign(api_id)
+
+GET         /yahoo/api_account/advertiser/campaign/json                                          @controllers.yahoo.api_account.advertiser.campaign.CampaignController.json
+POST        /yahoo/api_account/advertiser/campaign/json                                          @controllers.yahoo.api_account.advertiser.campaign.CampaignController.json
+
+GET         /yahoo/api_account/advertiser/campaign/bulk                                          @controllers.yahoo.api_account.advertiser.campaign.CampaignController.bulkNewCampaign
+
+
+# Yahoo Gemini Campaign Keyword Management
+
+GET         /yahoo/api_account/advertiser/campaign/keyword                                        @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.keyword(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /yahoo/api_account/advertiser/campaign/keyword/new                                    @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.createKeyword
+GET         /yahoo/api_account/advertiser/campaign/keyword/new                                    @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.newKeyword
+
+GET         /yahoo/api_account/advertiser/campaign/keyword/$api_id<[0-9]+>                        @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.editKeyword(api_id)
+POST        /yahoo/api_account/advertiser/campaign/keyword/$api_id<[0-9]+>                        @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.saveKeyword(api_id)
+
+POST        /yahoo/api_account/advertiser/campaign/keyword/$api_id<[0-9]+>/delete                 @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.deleteKeyword(api_id)
+
+GET         /yahoo/api_account/advertiser/campaign/keyword/json                                   @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.json
+POST        /yahoo/api_account/advertiser/campaign/keyword/json                                   @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.json
+
+GET         /yahoo/api_account/advertiser/campaign/keyword/bulk                                   @controllers.yahoo.api_account.advertiser.campaign.keyword.KeywordController.bulkNewKeyword
+
+
+# Yahoo Gemini AdGroup Management
+
+GET         /yahoo/api_account/advertiser/campaign/adgroup                                        @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.adgroup(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /yahoo/api_account/advertiser/campaign/adgroup/new                                    @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.createAdGroup
+GET         /yahoo/api_account/advertiser/campaign/adgroup/new                                    @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.newAdGroup
+
+GET         /yahoo/api_account/advertiser/campaign/adgroup/$api_id<[0-9]+>                        @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.editAdGroup(api_id)
+POST        /yahoo/api_account/advertiser/campaign/adgroup/$api_id<[0-9]+>                        @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.saveAdGroup(api_id)
+
+POST        /yahoo/api_account/advertiser/campaign/adgroup/$api_id<[0-9]+>/delete                 @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.deleteAdGroup(api_id)
+
+GET         /yahoo/api_account/advertiser/campaign/adgroup/json                                   @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.json
+POST        /yahoo/api_account/advertiser/campaign/adgroup/json                                   @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.json
+
+GET         /yahoo/api_account/advertiser/campaign/adgroup/bulk                                   @controllers.yahoo.api_account.advertiser.campaign.adgroup.AdGroupController.bulkNewAdGroup
+
+
+# Yahoo Gemini AdGroup Keyword Management
+
+GET         /yahoo/api_account/advertiser/campaign/adgroup/keyword                                @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.keyword(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /yahoo/api_account/advertiser/campaign/adgroup/keyword/new                            @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.createKeyword
+GET         /yahoo/api_account/advertiser/campaign/adgroup/keyword/new                            @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.newKeyword
+
+GET         /yahoo/api_account/advertiser/campaign/adgroup/keyword/$api_id<[0-9]+>                @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.editKeyword(api_id)
+POST        /yahoo/api_account/advertiser/campaign/adgroup/keyword/$api_id<[0-9]+>                @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.saveKeyword(api_id)
+
+POST        /yahoo/api_account/advertiser/campaign/adgroup/keyword/$api_id<[0-9]+>/delete         @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.deleteKeyword(api_id)
+
+GET         /yahoo/api_account/advertiser/campaign/adgroup/keyword/json                           @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.json
+POST        /yahoo/api_account/advertiser/campaign/adgroup/keyword/json                           @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.json
+
+GET         /yahoo/api_account/advertiser/campaign/adgroup/keyword/bulk                           @controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.KeywordController.bulkNewKeyword
+
+# Yahoo Gemini Ad Management
+
+#GET         /yahoo/api_account/advertiser/campaign/adgroup/ad                                    @controllers.yahoo.api_account.advertiser.campaign.adgroup.ad.AdController.ads(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+#GET         /yahoo/api_account/advertiser/campaign/adgroup/ad/json                               @controllers.yahoo.api_account.advertiser.campaign.adgroup.ad.AdController.json
+#POST        /yahoo/api_account/advertiser/campaign/adgroup/ad/json                               @controllers.yahoo.api_account.advertiser.campaign.adgroup.ad.AdController.json
+
+
+# Facebook Reporting API
+
+POST        /facebook/reporting/json                                                                @controllers.facebook.reporting.ReportingController.json(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+GET        /facebook/reporting/json                                                                @controllers.facebook.reporting.ReportingController.json(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+
+POST        /facebook/reporting/csv                                                                @controllers.facebook.reporting.ReportingController.csv(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+GET        /facebook/reporting/csv                                                                @controllers.facebook.reporting.ReportingController.csv(reportType: String ?="", campaignId: String ?="", adGroupId: String ?="", adId: String ?="", keywordId: String ?="", startDate: String ?="", endDate: String ?="")
+
+
+# Facebook API Account Management
+
+GET         /facebook/api_account                                                                @controllers.facebook.api_account.ApiAccountController.api_accounts(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /facebook/api_account/new                                                            @controllers.facebook.api_account.ApiAccountController.createApiAccount
+GET         /facebook/api_account/new                                                            @controllers.facebook.api_account.ApiAccountController.newApiAccount
+
+GET         /facebook/api_account/:object_id/                                                    @controllers.facebook.api_account.ApiAccountController.editApiAccount(object_id)
+POST        /facebook/api_account/:object_id/                                                    @controllers.facebook.api_account.ApiAccountController.saveApiAccount(object_id)
+
+GET         /facebook/api_account/bulk                                                           @controllers.facebook.api_account.ApiAccountController.bulkNewApiAccount
+
+
+# Facebook Campaign Management
+
+GET         /facebook/api_account/campaign                                                                @controllers.facebook.api_account.campaign.CampaignController.campaigns(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /facebook/api_account/campaign/new                                                            @controllers.facebook.api_account.campaign.CampaignController.createCampaign
+GET         /facebook/api_account/campaign/new                                                            @controllers.facebook.api_account.campaign.CampaignController.newCampaign
+
+GET         /facebook/api_account/campaign/:api_id/                                                    @controllers.facebook.api_account.campaign.CampaignController.editCampaign(api_id)
+POST        /facebook/api_account/campaign/:api_id/                                                    @controllers.facebook.api_account.campaign.CampaignController.saveCampaign(api_id)
+
+GET         /facebook/api_account/campaign/bulk                                                           @controllers.facebook.api_account.campaign.CampaignController.bulkNewCampaign
+
+
+# Facebook AdSet Management
+
+GET         /facebook/api_account/campaign/ad_set                                                                @controllers.facebook.api_account.campaign.ad_set.AdSetController.ad_sets(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /facebook/api_account/campaign/ad_set/new                                                            @controllers.facebook.api_account.campaign.ad_set.AdSetController.createAdSet
+GET         /facebook/api_account/campaign/ad_set/new                                                            @controllers.facebook.api_account.campaign.ad_set.AdSetController.newAdSet
+
+GET         /facebook/api_account/campaign/ad_set/:object_id/                                                    @controllers.facebook.api_account.campaign.ad_set.AdSetController.editAdSet(object_id)
+POST        /facebook/api_account/campaign/ad_set/:object_id/                                                    @controllers.facebook.api_account.campaign.ad_set.AdSetController.saveAdSet(object_id)
+
+GET         /facebook/api_account/campaign/ad_set/bulk                                                           @controllers.facebook.api_account.campaign.ad_set.AdSetController.bulkNewAdSet
+
+# Facebook Ad Management
+
+GET         /facebook/api_account/campaign/ad_set/ad                                                                @controllers.facebook.api_account.campaign.ad_set.ad.AdController.ads(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+POST        /facebook/api_account/campaign/ad_set/ad/new                                                            @controllers.facebook.api_account.campaign.ad_set.ad.AdController.createAd
+GET         /facebook/api_account/campaign/ad_set/ad/new                                                            @controllers.facebook.api_account.campaign.ad_set.ad.AdController.newAd
+
+GET         /facebook/api_account/campaign/ad_set/ad/:object_id/                                                    @controllers.facebook.api_account.campaign.ad_set.ad.AdController.editAd(object_id)
+POST        /facebook/api_account/campaign/ad_set/ad/:object_id/                                                    @controllers.facebook.api_account.campaign.ad_set.ad.AdController.saveAd(object_id)
+
+GET         /facebook/api_account/campaign/ad_set/ad/bulk                                                           @controllers.facebook.api_account.campaign.ad_set.ad.AdController.bulkNewAd
+
+
+# Facebook Business
+GET			/facebook/business																	@controllers.facebook.business.FacebookBusinessAccountController.businessAccount(page: Int ?=0, pageSize: Int ?=10, orderBy: Int ?=2, filter ?="")
+GET			/facebook/business/ad_study/split_test											@controllers.facebook.business.ad_study.FacebookSplitTestController.splitTests(page: Int ?=0, pageSize: Int ?=10, orderBy: Int ?=2, filter ?="")
+GET			/facebook/business/ad_study/split_test/new										@controllers.facebook.business.ad_study.FacebookSplitTestController.newSplitTest
+POST		/facebook/business/ad_study/split_test/new										@controllers.facebook.business.ad_study.FacebookSplitTestController.createSplitTest
+GET			/facebook/business/ad_study/:object_id											@controllers.facebook.business.ad_study.FacebookSplitTestController.editSplitTest(object_id)
+POST		/facebook/business/ad_study/:object_id											@controllers.facebook.business.ad_study.FacebookSplitTestController.saveSplitTest(object_id)
+POST		/facebook/business/ad_study/:object_id/delete										@controllers.facebook.business.ad_study.FacebookSplitTestController.deleteSplitTest(object_id)
+
+GET         /lynx/session                                                             @controllers.lynx.reporting.SessionController.session(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+GET         /lynx/session/json                                                          @controllers.lynx.reporting.SessionController.json
+POST        /lynx/session/json                                                          @controllers.lynx.reporting.SessionController.json
+
+
+# Tasks
+
+GET         /task/user/stream                                                                    @controllers.TaskController.tasks
+
+GET         /task/view/:id                                                                       @controllers.TaskController.view(id)
+
+GET         /task/view/:id/run                                                                   @controllers.TaskController.run(id)
+
+# Alerts
+
+GET         /alert/user/stream                                                                   @controllers.StatusController.alerts
+
+# Pending Changes
+
+GET         /pending                                                                             @controllers.TaskController.pending_changes
+POST        /pending                                                                             @controllers.TaskController.pending_changes
+
+GET         /pending/confirm                                                                     @controllers.TaskController.confirm_changes
+
+GET         /cancel-pending/:id                                                                  @controllers.TaskController.cancel_change(id)
+
+# User Settings
+
+GET			/user-profile																		 @controllers.UserProfileController.new_user
+GET         /user-profile/:username/                                                             @controllers.UserProfileController.user_profile(username: String)
+POST        /user-profile                                                                        @controllers.UserProfileController.save
+GET			/user-profile/:username/password-reset												 @controllers.UserProfileController.resetPassword(username: String)
+POST		/user-profile/:username/password-reset												 @controllers.UserProfileController.resetPassword(username: String)
+
+GET			/account-management																	 @controllers.AccountManagementController.accounts
+GET			/password-change																	 @controllers.ApplicationController.changePassword
+POST		/password-change																	 @controllers.ApplicationController.executeChangePassword
+
+# Logout
+
+GET         /logout                                                                              @controllers.ApplicationController.logout
+
+GET         /permission-denied                                                                   @controllers.DashboardController.permission_denied
+
+# Logs
+
+GET         /tasks/history                                                                 @controllers.TaskController.history(p: Int ?= 0, ps: Int ?= 10, ob: Int ?= 2, f ?= "")
+
+# API
+
+POST    /api/ping                               @controllers.ApiController.ping
+
+# Utility
+POST		/chart_template																	@controllers.ChartTemplateController.saveChartTemplate
+GET			/chart_template																	@controllers.ChartTemplateController.getTemplateNames
+GET			/chart_template/:template_name/													@controllers.ChartTemplateController.loadTemplate(template_name)
+
+# Map static resources from the /public folder to the /assets URL path
+
+GET         /assets/*file                                                                        @controllers.Assets.versioned(path="/public", file: Asset)
+GET         /google/images/:byteString                                                           @controllers.google.mcc.account.campaign.adgroup.ad.ImageAdController.image(byteString)

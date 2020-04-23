@@ -1,0 +1,111 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+        currentPageData: List[com.google.api.ads.adwords.axis.v201609.cm.AdGroupCriterion],
+        currentPage: Int,
+        currentPageSize: Int,
+        currentOrderBy: Int,
+        currentFilter: String,
+        totalCount: Int,
+        cached_keyword_changes: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: AuthenticatedRequest[Any])
+
+@import com.google.api.ads.adwords.axis.v201609.cm.{BiddableAdGroupCriterion, Keyword, NegativeAdGroupCriterion}
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - Google Keywords", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <table>
+                <tr>
+                    <td>
+                        <h3 class="page-header">Google Keywords</h3>
+                    </td>
+                    <td>&nbsp;</td>
+                    <td align="center">
+                        <a href="/google/ad-group-criterion/keyword/new" class="btn btn-primary btn-xs">New Keyword</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <!-- /.row -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    @totalCount Keyword(s)
+                </div>
+                    <!-- /.panel-heading -->
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        @views.html.snippets.pending_cached_changes_alert(cached_keyword_changes)
+                        <div id="dataTables_wrapper" class="dataTables_wrapper form-inline" role="grid">
+                            <div class="row">
+                                @views.html.snippets.pagination_size(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    currentFilter,
+                                    controllers.google.mcc.account.campaign.adgroup.criterion.routes.KeywordController.keywords
+                                )
+                                @views.html.snippets.search()
+                            </div>
+                            <table class="table-striped table-bordered table-hover dataTable no-footer" style="width: 100%;" id="dataTables" aria-describedby="dataTables_info">
+                                @views.html.snippets.table_header(
+                                    List(
+                                        ("API ID", 1, 1),
+                                        ("Text", 1, 1),
+                                        ("Match Type", 1, 1),
+                                        ("Status", 1, 1),
+                                        ("Action", 1, 1)
+                                    )
+                                )
+                                <tbody>
+                                    @currentPageData.map { keyword =>
+                                        <tr class="gradeA odd">
+                                            <td class="sorting_1">@keyword.getCriterion.getId</td>
+                                            <td class=" ">@keyword.getCriterion.asInstanceOf[Keyword].getText</td>
+                                            @keyword match {
+                                                case x: BiddableAdGroupCriterion => {
+                                                    <td class=" ">@x.getCriterion.asInstanceOf[Keyword].getMatchType.toString</td>
+                                                    <td class=" ">@x.getUserStatus.toString</td>
+                                                }
+                                                case y: NegativeAdGroupCriterion => {
+                                                    <td class=" ">@y.getCriterion.asInstanceOf[Keyword].getMatchType.toString</td>
+                                                    <td class=" ">N/A</td>
+                                                }
+                                            }
+                                            <td class="center ">
+                                                @form(controllers.google.mcc.account.campaign.adgroup.criterion.routes.KeywordController.editKeyword(keyword.getCriterion.getId)) {
+                                                    <input type="submit" value="Edit" class="btn btn-primary btn-xs">
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <div class="row">
+                                @views.html.snippets.showing_text(currentPageSize, currentPage, totalCount)
+                                @views.html.snippets.pagination_buttons(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    totalCount,
+                                    currentFilter,
+                                    controllers.google.mcc.account.campaign.adgroup.criterion.routes.KeywordController.keywords
+                                )
+                            </div>
+                        </div>
+                    </div>
+                        <!-- /.table-responsive -->
+                </div>
+                    <!-- /.panel-body -->
+            </div>
+                <!-- /.panel -->
+        </div>
+    </div>
+}

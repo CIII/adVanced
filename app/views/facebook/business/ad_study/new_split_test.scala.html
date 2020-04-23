@@ -1,0 +1,97 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import models.mongodb.facebook.Facebook._
+@import helper._
+@(
+    split_test_form: Form[FacebookSplitTest]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@main(title="adVanced - New Facebook Split Test", chart=false) {
+    @form(controllers.facebook.business.ad_study.routes.FacebookSplitTestController.createSplitTest) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Facebook Split Test
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">	
+                    	@inputText(
+                    		split_test_form("name"),
+                    		'_label -> "Name",
+                    		'class -> "form-control",
+                    		'_showConstraints -> false
+                   		)
+                    	@inputText(
+                    		split_test_form("bizObjectId.accountNumber"),
+                    		'_label -> "Business Account Number",
+                    		'class -> "form-control",
+                    		'_showConstraints -> false
+                   		)
+                   		@inputText(
+                    		split_test_form("description"),
+                    		'_label -> "Description",
+                    		'class -> "form-control text-area",
+                    		'_showConstraints -> false
+                   		)
+                   		@inputText(
+                    		split_test_form("startTime.date"),
+                    		'_label -> "Start Date",
+                    		'type -> "date",
+                    		'class -> "form-control",
+                    		'_showConstraints -> false
+                   		)
+                   		@inputText(
+                    		split_test_form("endTime.date"),
+                    		'_label -> "End Date",
+                    		'type -> "date",
+                    		'class -> "form-control",
+                    		'_showConstraints -> false
+                   		)
+           				@inputRadioGroup(
+           					split_test_form("testType"),
+           					options = Seq("campaign" -> "Campaign ", "adsets" -> "Ad Sets ", "adAccounts" -> "Ad Accounts "),
+           					'_label -> "Type",
+           					'_showConstraints -> false
+           				)
+                  	</div>
+                  	<label for="split-test-cells">Split Test Cells</label>
+                  	<div id="split-test-cells">
+              		@repeat(split_test_form("cells"), min=2){ cellField =>
+              			<div class="panel panel-default">
+              				<div class="panel-body">
+		              			<div class="form-group has-warning">
+		              				@inputText(
+		              					split_test_form(cellField.name.toString + ".name"),
+				                 		'_label -> "Name",
+				                 		'class -> "form-control",
+				                 		'_showConstraints -> false
+		              				)
+		              				@inputText(
+		              					split_test_form(cellField.name.toString + ".treatmentPercentage"),
+				                 		'_label -> "Treatment Percentage",
+				                 		'class -> "form-control",
+				                 		'_showConstraints -> false
+		              				)
+		              				@inputText(
+										split_test_form(cellField.name.toString + ".entityIds.csStr"),          
+				                 		'_label -> "Entity Ids (Comma Separated)",
+				                 		'class -> "form-control",
+				                 		'_showConstraints -> false    					
+		              				)
+		              			</div>
+	              			</div>
+	              		</div>
+          			}
+          			</div>
+          			@for(error <- split_test_form.errors) {
+                        <span style="color: red;">@error.message</span><br />
+                    }
+                    <br/>
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+}

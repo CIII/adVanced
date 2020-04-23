@@ -1,0 +1,76 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    ad_group_id: Long,
+    ad_group_form: Form[helpers.google.mcc.account.campaign.adgroup.AdGroupControllerHelper.AdGroupForm],
+    campaign_list: List[com.google.api.ads.adwords.axis.v201609.cm.Campaign],
+    cached_campaign_list: List[helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignForm]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import com.google.api.ads.adwords.axis.v201609.cm._
+@import helper._
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Edit Google AdGroups", chart=false) {
+    @form(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.saveAdGroup(ad_group_id)) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    Edit Google AdGroup (@ad_group_id)
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(ad_group_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        ad_group_form("status"),
+                        options(List[String](AdGroupStatus._ENABLED, AdGroupStatus._REMOVED, AdGroupStatus._PAUSED)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Status",
+                            'style -> "width:350px;",
+                            '_label -> "Status",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <div class="form-group">
+                        @inputText(ad_group_form("maxCpc"), '_label -> "Max Cpc", 'class-> "form-control", '_showConstraints -> false, 'type -> "number")
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        ad_group_form("content_bid_criterion_type_group"),
+                        options(List[String](CriterionTypeGroup._NONE, CriterionTypeGroup._UNKNOWN, CriterionTypeGroup._KEYWORD)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Content Bid Criterion Type Group",
+                            'style -> "width:350px;",
+                            '_label -> "Content Bid Criterion Type Group",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <div class="form-group has-warning">
+                    @select(
+                        ad_group_form("campaign"),
+                        options("" :: cached_campaign_list.map(_.name + " - Pending") ::: campaign_list.map(_.getName).toList),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Campaign",
+                            'style -> "width:350px;",
+                            '_label -> "Linked Campaign",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+}

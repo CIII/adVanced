@@ -1,0 +1,93 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import scala.collection.JavaConverters._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    currentPageData: List[com.facebook.ads.sdk.Ad],
+    currentPage: Int,
+    currentPageSize: Int,
+    currentOrderBy: Int,
+    currentFilter: String,
+    totalCount: Int,
+    cached_api_account_changes: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: AuthenticatedRequest[Any])
+
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Facebook Ads", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <table>
+                <tr>
+                    <td>
+                        <h3 class="page-header">Facebook Ads</h3>
+                    </td>
+                    <td>&nbsp;</td>
+                    <td align="center">
+                        <a href="/facebook/ad/new" class="btn btn-primary btn-xs">New Facebook Ad</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <!-- /.row -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    @totalCount Ad(s)
+                </div>
+                    <!-- /.panel-heading -->
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <div id="dataTables_wrapper" class="dataTables_wrapper form-inline" role="grid">
+                            <div class="row">
+                                @views.html.snippets.pagination_size(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    currentFilter,
+                                    controllers.facebook.api_account.campaign.ad_set.ad.routes.AdController.ads
+                                )
+                                @views.html.snippets.search()
+                            </div>
+                            <table class="table-striped table-bordered table-hover dataTable no-footer" style="width: 100%;" id="dataTables" aria-describedby="dataTables_info">
+                                @views.html.snippets.table_header(
+                                    List(
+                                        ("api ID", 1, 1),
+                                        ("name", 1, 1),
+                                        ("Ad Creative Images", 1, 1)
+                                    )
+                                )
+                                <tbody>
+                                    @currentPageData.map { ad =>
+                                        <tr class="gradeA odd">
+                                            <td class=" ">@ad.getFieldId</td>
+                                            <td class=" ">@ad.getFieldName</td>
+                                            <td class=" ">@{ad.getAdCreatives.execute.asScala.map(_.getFieldImageUrl).mkString("<br />")}</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <div class="row">
+                                @views.html.snippets.showing_text(currentPageSize, currentPage, totalCount)
+                                @views.html.snippets.pagination_buttons(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    totalCount,
+                                    currentFilter,
+                                    controllers.facebook.api_account.campaign.ad_set.ad.routes.AdController.ads
+                                )
+                            </div>
+                        </div>
+                    </div>
+                        <!-- /.table-responsive -->
+                </div>
+                    <!-- /.panel-body -->
+            </div>
+                <!-- /.panel -->
+        </div>
+    </div>
+}

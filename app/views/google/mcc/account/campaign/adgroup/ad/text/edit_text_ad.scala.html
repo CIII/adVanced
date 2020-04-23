@@ -1,0 +1,58 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    text_ad_id: Long,
+    text_ad_form: Form[helpers.google.mcc.account.campaign.adgroup.ad.TextAdControllerHelper.TextAdForm]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import com.google.api.ads.adwords.axis.v201609.cm._
+@import helper._
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Edit Google TextAd", chart=false) {
+    @form(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.saveTextAd(text_ad_id)) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    Edit Google TextAd (@text_ad_id)
+                </div>
+                <div class="panel-body">
+                    <div class="form-group">
+                    @inputText(text_ad_form("criterion.headline"), '_label -> "Headline", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(text_ad_form("criterion.description1"), '_label -> "Description 1", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(text_ad_form("criterion.description2"), '_label -> "Description 2", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(text_ad_form("criterion.url"), '_label -> "URL", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(text_ad_form("criterion.tracking_url_template"), '_label -> "Tracking URL Template", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @select(
+                        text_ad_form("status"),
+                        options("" :: List(UserStatus._ENABLED, UserStatus._PAUSED, UserStatus._REMOVED)),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Set Status",
+                            'style -> "width:350px;",
+                            '_label -> "Status",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+
+    }
+}

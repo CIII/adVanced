@@ -1,0 +1,26 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import util.charts._
+@(chart: ClientChart)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Google Accounts", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <h3 class="page-header">Google Accounts</h3>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            @{
+                snippets._client_chart(
+                    chartName="Accounts",
+                    chart
+                )
+            }
+        </div>
+    </div>
+}

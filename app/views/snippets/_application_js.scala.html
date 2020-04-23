@@ -1,0 +1,20 @@
+<script type="text/javascript">
+
+	// Accepts a jsonArray of objects and parses them into
+	// a multidimensional array to be used for google visualizations
+	function json_obj_array_to_data_table(json_obj_arr) {
+		var rows = [];
+		for(var obj in json_obj_arr){
+			var row = [];
+			for(var field in json_obj_arr[obj]){
+				row.push(json_obj_arr[obj][field]);
+			}
+			
+			rows.push(row);
+		}
+		
+		return rows;
+	}
+	
+	
+</script>

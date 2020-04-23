@@ -1,0 +1,44 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    mcc_form: Form[models.mongodb.google.Google.Mcc],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - New Google MCC Account", chart=false) {
+    @form(controllers.google.mcc.routes.MccController.createMcc) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Google MCC
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("developerToken"), '_label -> "Developer Token", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("oAuthClientId"), '_label -> "oAuth Client ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("oAuthClientSecret"), '_label -> "oAuth Client Secret", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("oAuthRefreshToken"), '_label -> "oAuth Refresh Token", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+    @_bulk_import(bulk_import_errors, controllers.google.mcc.routes.MccController.bulkNewMcc, "Mcc(s)")
+}

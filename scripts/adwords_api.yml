@@ -1,0 +1,20 @@
+---
+:authentication:
+  :method: OAuth2
+  :oauth2_client_id: 449663222562-cuka0jcfcq46fls36i4jprfiehonpmov.apps.googleusercontent.com
+  :oauth2_client_secret: zVbLobx9MUD5eyyPWrgbVe3_
+  :developer_token: KmMUVOEqVtCcwnOdaK8SRA
+  :client_customer_id: 994-156-4635
+  :user_agent: INSERT_YOUR_USER_AGENT_HERE
+  :oauth2_token:
+    :access_token: ya29.GlvxA-LxuyuuX91cv-J9Fw5S1n7SxPG048Sr6erqo-f3DvbyLvTZxTtOdkdRbsOMoOdMR1Mzkm5eKpxkj1_fQI7TQPOYeVBXuy2s9X7Gw3UeX8v4z6780tQXC2II
+    :refresh_token: 1/zlIvKQRhcXMd6H9Zjc9KyRiQl2fWR3Oe3vNWpp3z8QM
+    :issued_at: 2017-02-13 13:02:15.770534591 -05:00
+    :expires_in: 3600
+    :id_token: 
+:service:
+  :environment: PRODUCTION
+:connection:
+  :enable_gzip: false
+:library:
+  :log_level: INFO

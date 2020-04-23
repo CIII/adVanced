@@ -1,0 +1,41 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    mcc_form: Form[models.mongodb.yahoo.Yahoo.ApiAccount],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - New Yahoo Gemini API Account", chart=false) {
+    @form(controllers.yahoo.api_account.routes.ApiAccountController.createApiAccount) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Yahoo API Account
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("clientId"), '_label -> "Client ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("clientSecret"), '_label -> "Client Secret", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(mcc_form("refreshToken"), '_label -> "Refresh Token", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+    @_bulk_import(bulk_import_errors, controllers.yahoo.api_account.routes.ApiAccountController.bulkNewApiAccount, "Api Account(s)")
+}

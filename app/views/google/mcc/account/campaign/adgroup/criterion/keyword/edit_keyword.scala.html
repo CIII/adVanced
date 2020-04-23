@@ -1,0 +1,90 @@
+@import helpers.google.mcc.account.campaign.adgroup.AdGroupControllerHelper
+@import helpers.google.mcc.account.campaign.adgroup.criterion.KeywordControllerHelper
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    keyword_id: Long,
+    keyword_form: Form[KeywordControllerHelper.KeywordForm],
+    ad_group_list: List[com.google.api.ads.adwords.axis.v201609.cm.AdGroup],
+    cached_ad_group_list: List[AdGroupControllerHelper.AdGroupForm]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import com.google.api.ads.adwords.axis.v201609.cm._
+@import helper._
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Edit Google Keyword", chart=false) {
+    @form(controllers.google.mcc.account.campaign.adgroup.criterion.routes.KeywordController.saveKeyword(keyword_id)) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    Edit Google Keyword (@keyword_id)
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                        @inputText(keyword_form("keyword.text"), '_label -> "Text", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                        <label>Approval Status</label>
+                        keyword_form("approval_status")
+                    </div>
+                    <div class="form-group">
+                        <label>Disapproval Reasons</label>
+                        *@keyword_form("disapproval_reasons") <br />
+                    </div>
+                    <div class="form-group">
+                        @select(
+                            keyword_form("keyword.match_type"),
+                            options("" :: List(KeywordMatchType._BROAD, KeywordMatchType._EXACT, KeywordMatchType._PHRASE)),
+                            args(
+                                'class -> "chosen-select form-control",
+                                Symbol("data-placeholder") -> "Set Match Type",
+                                'style -> "width:350px;",
+                                '_label -> "User Status",
+                                '_showConstraints -> false
+                            ): _*
+                        )
+                    </div>
+                    <div class="form-group">
+                        @inputText(keyword_form("destination_url"), '_label -> "Destination Url", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                        @inputText(keyword_form("final_url"), '_label -> "Final Url", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                        @select(
+                            keyword_form("status"),
+                            options("" :: List(UserStatus._ENABLED, UserStatus._PAUSED, UserStatus._REMOVED)),
+                            args(
+                                'class -> "chosen-select form-control",
+                                Symbol("data-placeholder") -> "Set Status",
+                                'style -> "width:350px;",
+                                '_label -> "Status",
+                                '_showConstraints -> false
+                            ): _*
+                        )
+                    </div>
+                    <div class="form-group has-warning">
+                        @select(
+                            keyword_form("ad_group_id"),
+                            options(cached_ad_group_list.map(_.name + " - Pending").toList ::: ad_group_list.map(_.getName).toList),
+                            args(
+                                'class -> "chosen-select form-control",
+                                Symbol("data-placeholder") -> "AdGroup",
+                                'style -> "width:350px;",
+                                '_label -> "Linked AdGroup",
+                                '_showConstraints -> false
+                            ): _*
+                        )
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+
+    }
+}

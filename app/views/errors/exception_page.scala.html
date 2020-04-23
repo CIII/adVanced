@@ -1,0 +1,6 @@
+@(ex: Throwable)
+<h3>Exception!</h3>
+<p>@ex.getMessage</p>
+@for(line <- ex.getStackTrace.map(_.toString)) {
+    <p>@line</p>
+}

@@ -1,0 +1,101 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import helper._
+@(
+    currentPageData: List[models.mongodb.facebook.Facebook.FacebookSplitTest],
+    currentPage: Int,
+    currentPageSize: Int,
+    currentOrderBy: Int,
+    currentFilter: String,
+    totalCount: Int,
+    cached_split_tests: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: AuthenticatedRequest[Any])
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Facebook Split Tests", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <table>
+                <tr>
+                    <td>
+                        <h3 class="page-header">Facebook Split Tests</h3>
+                    </td>
+                    <td>&nbsp;</td>
+                    <td align="center">
+                        <a href="/facebook/business/ad_study/split_test/new" class="btn btn-primary btn-xs">New Split Test</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <!-- /.row -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    @totalCount Split Test(s)
+                </div>
+                    <!-- /.panel-heading -->
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        @views.html.snippets.pending_cached_changes_alert(cached_split_tests)
+                        <div id="dataTables_wrapper" class="dataTables_wrapper form-inline" role="grid">
+                            <div class="row">
+                                @views.html.snippets.pagination_size(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    currentFilter,
+                                    controllers.facebook.business.ad_study.routes.FacebookSplitTestController.splitTests
+                                )
+                                @views.html.snippets.search()
+                            </div>
+                            <table class="table-striped table-bordered table-hover dataTable no-footer" style="width: 100%;" id="dataTables" aria-describedby="dataTables_info">
+                                @views.html.snippets.table_header(
+                                    List(
+                                        ("name", 1, 1),
+                                        ("description", 1, 1)
+                                    )
+                                )
+                                <tbody>
+                                    @currentPageData.map { split_test =>
+                                        <tr class="gradeA odd">
+                                            <td class="sorting_1">@split_test.name</td>
+                                            <td class=" ">@split_test.description</td>
+                                            <td class="center">
+                                            @form(controllers.facebook.business.ad_study.routes.FacebookSplitTestController.editSplitTest(split_test._id.get.toString)) {
+                                                <input type="submit" value="Edit" class="btn btn-primary btn-xs"/>
+                                            }
+                                            </td>
+                                            <td class="center">
+                                            @form(controllers.facebook.business.ad_study.routes.FacebookSplitTestController.deleteSplitTest(split_test._id.get.toString)) {
+                                                <input type="submit" value="Delete" class="btn btn-primary btn-xs"/>
+                                            }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <div class="row">
+                                @views.html.snippets.showing_text(currentPageSize, currentPage, totalCount)
+                                @views.html.snippets.pagination_buttons(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    totalCount,
+                                    currentFilter,
+                                    controllers.facebook.business.ad_study.routes.FacebookSplitTestController.splitTests
+                                )
+                            </div>
+                        </div>
+                    </div>
+                        <!-- /.table-responsive -->
+                </div>
+                    <!-- /.panel-body -->
+            </div>
+                <!-- /.panel -->
+        </div>
+    </div>
+}

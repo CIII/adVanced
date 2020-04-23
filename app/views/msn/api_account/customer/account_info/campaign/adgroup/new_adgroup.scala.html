@@ -1,0 +1,73 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    adgroup_form: Form[helpers.msn.api_account.customer.account.campaign.adgroup.AdGroupControllerHelper.AdGroupForm],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+
+@main(title="adVanced - New Msn AdGroup", chart=false) {
+    @form(controllers.msn.api_account.customer.account.campaign.adgroup.routes.AdGroupController.createAdGroup) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Msn AdGroup
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(adgroup_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputDate(adgroup_form("start_date"), '_label -> "Start Date", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputDate(adgroup_form("end_date"), '_label -> "End Date", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("ad_distribution"), '_label -> "Ad Distribution", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("ad_rotation_type"), '_label -> "Ad Rotation Type", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("bidding_model"), '_label -> "Bidding Model", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("broad_match_bid"), '_label -> "Broad Match Bid", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("content_match_bid"), '_label -> "Content Match Bid", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("phrase_match_bid"), '_label -> "Phrase Match Bid", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("exact_match_bid"), '_label -> "Exact Match Bid", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("network"), '_label -> "Network", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("pricing_model"), '_label -> "Pricing Model", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("language"), '_label -> "Language", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(adgroup_form("status"), '_label -> "Status", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+
+    }
+    @_bulk_import(bulk_import_errors, controllers.msn.api_account.customer.account.campaign.adgroup.routes.AdGroupController.bulkNewAdGroup, "AdGroup(s)")
+}

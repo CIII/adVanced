@@ -1,0 +1,34 @@
+@(bulk_import_errors: List[String], bulk_import_action: Call, object_name: String)
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+<div class="row">
+    <br />
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            Bulk Import @object_name
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                @form(action=bulk_import_action, 'enctype -> "multipart/form-data") {
+                <label>Select Bulk Import CSV</label>
+                <input type="file" name="bulk">
+                <br />
+                <button type="submit" class="btn  btn-outline btn-primary">Import</button>
+                }
+            </div>
+            @if(bulk_import_errors.length > 0) {
+            <div class="form-group">
+
+                <label>Bulk Import Errors:</label>
+                <br />
+                @for(error <- bulk_import_errors) {
+                @error <br />
+                }
+            </div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,44 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    campaign_proximity_id: Long,
+    campaign_proximity_form: Form[helpers.google.mcc.account.campaign.criterion.CampaignProximityControllerHelper.CampaignProximityForm],
+    campaign_list: List[com.google.api.ads.adwords.axis.v201609.cm.Campaign],
+    cached_campaign_list: List[helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignForm]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - Edit Google Campaign Proximity", chart=false) {
+    @form(controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.saveCampaignProximity(campaign_proximity_id)) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    Edit Google Campaign Proximity (@campaign_proximity_id)
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @select(
+                        campaign_proximity_form("campaignApiId"),
+                        options("" :: cached_campaign_list.map(_.name + " - Pending") ::: campaign_list.map(_.getName).toList),
+                        args(
+                            'class -> "chosen-select form-control",
+                            Symbol("data-placeholder") -> "Campaign",
+                            'style -> "width:350px;",
+                            '_label -> "Linked Campaign",
+                            '_showConstraints -> false
+                        ): _*
+                    )
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+
+    }
+}

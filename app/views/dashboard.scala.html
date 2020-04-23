@@ -1,0 +1,405 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import util.charts.ChartWriter._
+@import models.mongodb.performance.PerformanceEntity
+@(chart: util.charts.performance.PerformanceChart[_ <: PerformanceEntity])(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import play.api.libs.json.Json
+@import play.api.libs.json.JsArray
+@import Shared.Shared.gson
+
+@main(title="adVanced - Dashboard", chart=true) {
+    <div class="row">
+        <div class="col-lg-9">
+            <h2 class="page-header">Dashboard</h2>
+        </div>
+        <div class="col-lg-3">
+            <div id="date-dropdown" class="dropdown pull-right pad-top-1">
+                <button data-toggle="dropdown" class="btn btn-sm btn-default dropdown-toggle">@chart.metaData.startDate.get.toString("MM/dd/yyyy") - @chart.metaData.endDate.get.toString("MM/dd/yyyy") <span class="caret"></span></button>
+                <ul class="dropdown-menu keep_open">
+                    <li>
+                        <div class="col-lg-12">
+                            <br>
+                            <label for="start-date-filter">Start</label>
+                            <input class="form-control" type="date" id="start-date-filter"/>
+                            <br>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="col-lg-12">
+                            <label for="end-date-filter">End</label>
+                            <input class="form-control" type="date" id="end-date-filter"/>
+                            <br>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="col-lg-12">
+                            <div class="pull-right">
+                                <button class="btn btn-xs btn-primary" id="date-filter-apply-btn">Apply</button>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-9">
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="panel-title">
+                                <i class="fa fa-bar-chart-o fa-fw"></i> Conversions
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div id="graph-0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="panel-title">
+                                <i class="fa fa-bar-chart-o fa-fw"></i> Cost vs. Revenue
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div id="graph-1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-12">
+                    <div id="table-panel-div" class="panel panel-default">
+                        <div class="panel-heading">
+                            <h5 class="panel-title">
+                                <i class="fa fa-table fa-fw"></i> Data
+                                <span class="pull-right">
+                                    @chart.totalRecords Result(s)
+                                </span>
+                            </h5>
+                        </div>
+                        <div id="data-table" class="gTable"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <i class="fa fa-bell fa-fw"></i> Alerts
+                        </div>
+                        <div class="panel-body">
+                            <div class="list-group" id="dashboard_alerts">
+                                <a href="#" class="list-group-item" style="background-color: #f8f8f8;"><i class="fa fa-warning fa-fw"></i> No Alerts</a>
+                            </div>
+                            <a href="#" class="btn btn-default btn-block">View All Alerts</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <i class="fa fa-upload fa-fw"></i> Tasks
+                        </div>
+                            <!-- /.panel-heading -->
+                        <div class="panel-body">
+                            <div class="list-group" id="dashboard_tasks">
+                                <a href="#" class="list-group-item" style="background-color: #f8f8f8;"><i class="fa fa-warning fa-fw"></i> No Tasks</a>
+                            </div>
+                            <a href="#" class="btn btn-default btn-block">View All Tasks</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <link href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css" rel="stylesheet">
+    <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+    
+    "use strict";
+    var chartMetaData = @Html(gson.toJson(chart.metaData));
+
+    function registerWindowResize() {
+        $(window).resize(function() {
+            if(this.resizeTO) clearTimeout(this.resizeTO);
+            this.resizeTO = setTimeout(function() {
+                $(this).trigger('resizeEnd');
+            }, 500);
+        });
+
+        $(window).on('resizeEnd', function() {
+            loadDashboard();
+        });
+    }
+
+    function registerDateFilter() {
+        // Set initial values
+        $('#start-date-filter').val(chartMetaData.startDate);
+        $('#end-date-filter').val(chartMetaData.endDate);
+
+        // register date listeners
+        $('#start-date-filter').on('change', function(){
+            chartMetaData.startDate = $(this).val();
+        });
+        
+        $('#end-date-filter').on('change', function(){
+            chartMetaData.endDate = $(this).val();
+        });
+
+        $('#date-filter-apply-btn').on('click', function(){
+            reload();
+        });
+
+        // register date dropdown so that it doesn't close when we click the html inputs
+        $('.dropdown-menu input, .dropdown-menu label').click(function(e) {
+            e.stopPropagation();
+        });
+    }
+
+    function buildDataTable() {
+        var dataTable, rows, row;
+        dataTable = new google.visualization.DataTable();
+        @for(column <- chart.visibleColumns){
+            dataTable.addColumn('@if(column.isDimension){string} else {number}', '@column.header');
+        }
+
+        dataTable.addRows(@{Html(gson.toJson(chart.getData))}.data);
+        return dataTable;
+    }
+
+    function buildTable(data) {
+        var table;
+        table = new google.visualization.ChartWrapper({
+            chartType: 'Table',
+            containerId: 'data-table',
+            dataTable: data,
+            options: {
+                width: '100%',
+                height: '100%',
+                page: 'disable',
+                allowHtml: true,
+                cssClassNames: {
+                    headerRow: 'gTableHeader',
+                    headerCell: 'gTableHeaderCell'
+                }
+            }
+        });
+
+        @for((column, i) <- chart.visibleColumns.zipWithIndex){
+            @if(column.isMeasure){
+                var formatter = new google.visualization.NumberFormat({
+                    negativeColor: 'red', 
+                    negativeParens: true, 
+                    fractionDigits: @column.decimalPlaces,
+                    prefix: '@column.numberFormatPrefix',
+                    suffix: '@column.numberFormatSuffix'
+                });
+
+                formatter.format(data, @i);
+            }
+        }
+
+        table.draw();
+        return table;
+    }
+
+    function buildGraphs() {
+        @if(chart.totalRecords > 0){
+            @for((graph,i) <- chart.metaData.graphs.zipWithIndex){
+                var graphDataTable = new google.visualization.DataTable();
+                var formats = [];
+                @for(column <- chart.getGraphColumns(graph)){
+                    graphDataTable.addColumn('@if(column.isDimension){string} else {number}', '@column.header');
+                    @if(column.numberFormatPrefix.equals("$")){
+                        formats.push('currency');
+                    } 
+
+                    @if(column.numberFormatSuffix.equals("%")){
+                        formats.push('#\'%\'');
+                    } 
+
+                    @if(column.numberFormatPrefix.equals("") && column.numberFormatSuffix.equals("")) {
+                        formats.push('decimal');
+                    }
+                }
+
+                graphDataTable.addRows(@{Html(gson.toJson(chart.getGraphData(graph)))}.data);
+                @if(graph.graphType.equals("Line") || graph.graphType.equals("Bar")){
+                    buildMaterialGraph(graphDataTable, @i, '@graph.graphType');
+                } else {
+                    buildCorechartGraph(graphDataTable, @i, '@graph.graphType', formats);
+                }
+            }
+        }
+    }
+
+    function buildCorechartGraph(data, index, type, formats){
+        var options = {
+            animation: {
+                startup: true,
+                duration: 1000,
+                easing: 'out'
+            },
+            hAxis: {
+                showTextEvery: 7,
+                textStyle: {
+                    color: 'gray',
+                    fontSize: 12
+                }
+            },
+            series: {
+                0: {
+                    targetAxisIndex: 0,
+                    color: '#81C784'
+                },
+                1: {
+                    targetAxisIndex: 1,
+                    color: '#4285F4'
+                }
+            },
+            vAxes: [
+                { 
+                    format: formats[1],
+                    textStyle: {
+                        color: 'gray',
+                        fontSize: 12
+                    }
+                },
+                { 
+                    format: formats[2],
+                    textStyle: {
+                        color: 'gray',
+                        fontSize: 12
+                    }
+                }
+            ],
+            height: 250,
+            chartArea: {
+                left: 75,
+                top: 25,
+                right: 75,
+                bottom: 25,
+                width: '90%',
+                height: '70%'
+            },
+            explorer: {},
+            legend: {
+                position: 'top',
+                textStyle: {
+                    color: 'gray',
+                    fontSize: 12
+                }
+            },
+            crosshair: {
+                color: 'gray',
+                opacity: 0.5,
+                orientation: 'vertical',
+                trigger: 'both'
+            },
+            focusTarget: 'category',
+            tooltip: {
+                textStyle: {
+                    color: 'black',
+                    fontSize: 12
+                }
+            }
+        }
+
+        if(type == 'ComboChart'){
+            options.seriesType = 'bars',
+            options.series[1].type = 'line'
+        }
+
+        var graph = new google.visualization.ChartWrapper({
+            chartType: type,
+            containerId: 'graph-' + index,
+            dataTable: data,
+            options: options
+        });
+
+        graph.draw();
+    }
+
+    function buildMaterialGraph(data, index, type){
+        var graph = new google.visualization.ChartWrapper({
+            chartType: type,
+            containerId: 'graph-' + index,
+            dataTable: data,
+            options: {
+                animation: {
+                    startup: true,
+                    duration: 1000,
+                    easing: 'out'
+                },
+                series: {
+                    0: {axis: 0 },
+                    1: {axis: 1 }
+                },
+                axes: {
+                    y: {
+                        0: { },
+                        1: { }
+                    },
+                    x: {
+                        0: {
+                        }
+                    }
+                },
+                width: '100%',
+                height: '100%',
+                legend: {
+                    position: 'right',
+                    textStyle: {
+                        color: 'black',
+                        fontSize: 16
+                    }
+                }
+            }
+        });
+
+        graph.draw();
+    }
+
+    function reload(){
+        var form = $('<form action="/dashboard" method="get">' +
+            '<input type="text" name="startDate" value=\'' + chartMetaData.startDate + '\' />' +
+            '<input type="text" name="endDate" value=\'' + chartMetaData.endDate + '\' />' +
+            '</form>');
+        $('body').append(form);
+        form.submit();
+    }
+
+    function loadDashboard() {
+        var data, table;
+
+        registerWindowResize();
+        registerDateFilter();
+
+        data = buildDataTable();
+        table = buildTable(data);
+        buildGraphs();
+    }
+
+    google.charts.load('43', {packages: ['line', 'bar', 'corechart', 'table']});
+    google.charts.setOnLoadCallback(function () {
+        console.log(JSON.stringify(chartMetaData));
+        loadDashboard();
+    }); 
+
+    </script>
+}

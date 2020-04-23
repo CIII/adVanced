@@ -1,0 +1,100 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    currentPageData: List[com.google.api.ads.adwords.axis.v201609.cm.CampaignCriterion],
+    currentPage: Int,
+    currentPageSize: Int,
+    currentOrderBy: Int,
+    currentFilter: String,
+    totalCount: Int,
+    cached_campaign_proximity_changes: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: AuthenticatedRequest[Any])
+@import helper._
+
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - Google Campaign Proximity", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <table>
+                <tr>
+                    <td>
+                        <h3 class="page-header">Google Campaign Proximities</h3>
+                    </td>
+                    <td>&nbsp;</td>
+                    <td align="center">
+                        <a href="/google/campaign/proximity/new" class="btn btn-primary btn-xs">New Campaign Proximity</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <!-- /.row -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    @totalCount Google Campaign Proximities
+                </div>
+                    <!-- /.panel-heading -->
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        @views.html.snippets.pending_cached_changes_alert(cached_campaign_proximity_changes)
+                        <div id="dataTables_wrapper" class="dataTables_wrapper form-inline" role="grid">
+                            <div class="row">
+                                @views.html.snippets.pagination_size(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    currentFilter,
+                                    controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.campaignProximity
+                                )
+                                @views.html.snippets.search()
+                            </div>
+                            <table class="table table-striped table-bordered table-hover dataTable no-footer" id="dataTables" aria-describedby="dataTables_info">
+                                @views.html.snippets.table_header(
+                                    List(
+                                        ("api id", 1, 1),
+                                        ("campaign", 1, 1),
+                                        ("bid modifier", 1, 1),
+                                        ("action", 1, 1)
+                                    )
+                                )
+                                <tbody>
+                                    @currentPageData.map { campaign_proximity =>
+                                        <tr class="gradeA_odd">
+                                            <td class="sorting_1">@campaign_proximity.getCriterion.getId</td>
+                                            <td class=" ">@campaign_proximity.getCampaignId</td>
+                                            <td class=" ">@campaign_proximity.getBidModifier</td>
+                                            <td class="center ">
+                                                @form(controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.editCampaignProximity(campaign_proximity.getCriterion.getId)) {
+                                                    <input type="submit" value="Edit" class="btn btn-primary btn-xs">
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <div class="row">
+                                @views.html.snippets.showing_text(currentPageSize, currentPage, totalCount)
+                                @views.html.snippets.pagination_buttons(
+                                    currentPageSize,
+                                    currentPage,
+                                    currentOrderBy,
+                                    totalCount,
+                                    currentFilter,
+                                    controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.campaignProximity
+                                )
+                            </div>
+                        </div>
+                    </div>
+                        <!-- /.table-responsive -->
+                </div>
+                    <!-- /.panel-body -->
+            </div>
+                <!-- /.panel -->
+        </div>
+    </div>
+}

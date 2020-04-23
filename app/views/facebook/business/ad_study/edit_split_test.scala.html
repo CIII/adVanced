@@ -1,0 +1,103 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import models.mongodb.facebook.Facebook._
+@import helper._
+@(
+    split_test_form: Form[FacebookSplitTest]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@main(title="adVanced - Edit Facebook Split Test", chart=false) {
+    @form(controllers.facebook.business.ad_study.routes.FacebookSplitTestController.saveSplitTest(split_test_form.data("_id.id"))) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    Edit Facebook Split Test
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    	<input type="hidden" 
+                    		id="_id.id" 
+                    		name="_id.id" 
+                    		value="@split_test_form.data("_id.id")"/>
+                    	<input type="hidden" 
+                    		id="adStudyId" 
+                    		name="adStudyId" 
+                    		value="@split_test_form.data("adStudyId")"/>
+                    	@inputText(
+                    		split_test_form("name"),
+                    		'_label -> "Name",
+                    		'class -> "form-control",
+                    		'_showConstraints -> false
+                   		)
+                    	@inputText(
+                    		split_test_form("bizObjectId.accountNumber"),
+                    		'_label -> "Business Account Number",
+                    		'class -> "form-control",
+                    		'_showConstraints -> false
+                   		)
+                   		@inputText(
+                    		split_test_form("description"),
+                    		'_label -> "Description",
+                    		'class -> "form-control text-area",
+                    		'_showConstraints -> false
+                   		)
+                   		@inputDate(
+                    		split_test_form("startTime.date"),
+                    		'_label -> "Start Date",
+                    		'class -> "form-control",
+                    		'_showConstraints -> false
+                   		)
+                   		@inputDate(
+                    		split_test_form("endTime.date"),
+                    		'_label -> "End Date",
+                    		'class -> "form-control",
+                    		'_showConstraints -> false
+                   		)
+           				@inputRadioGroup(
+           					split_test_form("testType"),
+           					options = Seq("campaign" -> "Campaign ", "adsets" -> "Ad Sets ", "adAccounts" -> "Ad Accounts "),
+           					'_label -> "Type",
+           					'_showConstraints -> false
+           				)
+                  	</div>
+                  	<label for="split-test-cells">Split Test Cells</label>
+                  	<div id="split-test-cells">
+              		@repeat(split_test_form("cells"), min=2){ cellField =>
+              			<div class="panel panel-default">
+              				<div class="panel-body">
+		              			<div class="form-group has-warning">
+			                    	<input type="hidden" 
+			                    		id="@{cellField.name.toString + ".cellId"}" 
+			                    		name="@{cellField.name.toString + ".cellId"}" 
+			                    		value="@split_test_form.data(cellField.name.toString + ".cellId")"/>
+		              				@inputText(
+		              					split_test_form(cellField.name.toString + ".name"),
+				                 		'_label -> "Name",
+				                 		'class -> "form-control",
+				                 		'_showConstraints -> false
+		              				)
+		              				@inputText(
+		              					split_test_form(cellField.name.toString + ".treatmentPercentage"),
+				                 		'_label -> "Treatment Percentage",
+				                 		'class -> "form-control",
+				                 		'_showConstraints -> false
+		              				)
+		              				@inputText(
+										split_test_form(cellField.name.toString + ".entityIds.csStr"),          
+				                 		'_label -> "Entity Ids (Comma Separated)",
+				                 		'class -> "form-control",
+				                 		'_showConstraints -> false    					
+		              				)
+		              			</div>
+	              			</div>
+	              		</div>
+          			}
+          			</div>
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+}

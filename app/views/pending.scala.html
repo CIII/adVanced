@@ -1,0 +1,65 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(pending_cache: List[Shared.Shared.PendingCacheStructure])(implicit request: AuthenticatedRequest[Any])
+
+@import Shared.Shared._
+@main(title="adVanced - Pending Changes", chart=false) {
+    <br />
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            Pending Changes
+        </div>
+            <!-- /.panel-heading -->
+        <div class="panel-body">
+            <div class="panel-group" id="accordian">
+                @for(category <- Shared.Shared.ChangeCategory.values) {
+                    @defining(pending_cache.count(_.changeCategory == category)) { category_count =>
+                    @if(category_count > 0) {
+                        <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <h4 class="panel-title">
+                                <a data-toggle="collapse" data-parent="#accordion" href="#@category" class=""><b><i>@category.toString (@category_count pending)</i></b></a>
+                            </h4>
+                        </div>
+                        <div id="@category" class="panel-collapse collapse" style="">
+                            <div class="panel-body">
+                    @for(pending_change <- pending_cache.filter(_.changeCategory == category)) {
+                        <div class="alert @{pending_change.changeType match { case ChangeType.NEW => "alert-info" case ChangeType.UPDATE => "alert-warning" case ChangeType.DELETE => "alert-error"}}">
+                            @pending_change.changeType.toString @pending_change.changeCategory.toString (@{pending_change.changeData.toString.split(",")(2)})  Pending. <a href="/cancel-pending/@pending_change.id" class="alert-link">Cancel</a>.
+                        </div>
+                    }
+                    </div></div></div>
+                    }}
+                }
+            </div><br />
+            <pre><input type="checkbox" value="adverplex" checked @if(pending_cache.length < 1) {disabled} /><span class="text-primary"><b><i> Sync Changes with Adverplex</i></b></span></pre>
+        </div>
+        <div class="panel-footer">
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#submitChanges" @if(pending_cache.length < 1) {disabled}>Submit Changes</button>
+        </div>
+    </div>
+    <div class="modal fade" id="submitChanges" tabindex="-1" role="dialog" aria-labelledby="submitChangesLabel" aria-hidden="true" style="display: none;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <a type="button" class="close" data-dismiss="modal" aria-hidden="true" href="/dashboard">×</a>
+                    <h4 class="modal-title" id="submitChangesLabel">Pending Changes Submitted...</h4>
+                </div>
+                <div class="modal-body">
+                    Submitting pending changes. You can view the status of your process by clicking the task icon in the upper right-hand corner of this page.
+                </div>
+                <div class="modal-footer">
+                    <a href="/dashboard" class="btn btn-default" data-dismiss="modal" id="confirm">Confirm</a>
+                </div>
+            </div>
+                <!-- /.modal-content -->
+        </div>
+            <!-- /.modal-dialog -->
+    </div>
+    <script type="text/javascript">
+        $( "#confirm" ).click(function() {
+            window.location.href='/pending/confirm';
+        });
+    </script>
+}

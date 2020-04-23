@@ -1,0 +1,22 @@
+@(
+    currentPageSize: Int,
+    currentPage: Int,
+    currentOrderBy: Int,
+    currentFilter: String,
+    listFunction: (Int, Int, Int, String) => Call
+)(implicit request: play.api.mvc.Request[Any])
+<div class="col-sm-6">
+    <div class="dataTables_length" id="dataTables_length">
+        <label>
+            <select
+            name="dataTables_length"
+            aria-controls="dataTables"
+            class="form-control input-sm"
+            onchange="this.options[this.selectedIndex].value && (window.location = this.options[this.selectedIndex].value);">
+                <option value="@listFunction(0, 10, currentOrderBy, currentFilter)" @{if(currentPageSize == 10) { "selected" }}>10</option>
+                <option value="@listFunction(0, 25, currentOrderBy, currentFilter)" @{if(currentPageSize == 25) { "selected" }}>25</option>
+                <option value="@listFunction(0, 0, currentOrderBy, currentFilter)" @{if(currentPageSize == 50) { "selected" }}>50</option>
+                <option value="@listFunction(0, 100, currentOrderBy, currentFilter)" @{if(currentPageSize == 100) { "selected" }}>100</option>
+            </select> records per page</label>
+    </div>
+</div>

@@ -1,0 +1,71 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    keyword_form: Form[models.mongodb.yahoo.Yahoo.Keyword],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - New Yahoo Gemini Campaign Keyword", chart=false) {
+    @form(controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.routes.KeywordController.createKeyword) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Yahoo Keyword
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("campaignName"), '_label -> "Campaign Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("budget"), '_label -> "Budget", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("budgetType"), '_label -> "Budget Type", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("channel"), '_label -> "Channel", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("apiId"), '_label -> "API ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("language"), '_label -> "Language", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("objective"), '_label -> "Objective", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("status"), '_label -> "Status", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("isPartnerNetwork"), '_label -> "Is Partner Network?", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("defaultLandingUrl"), '_label -> "Default Landing Url", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("trackingPartner"), '_label -> "Tracking Partner", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("appLocale"), '_label -> "App Locale", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("advancedGeoPos"), '_label -> "Advanced Geo Pos", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(keyword_form("advancedGeoNeg"), '_label -> "Advanced Geo Neg", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+    @_bulk_import(bulk_import_errors, controllers.yahoo.api_account.advertiser.campaign.adgroup.keyword.routes.KeywordController.bulkNewKeyword, "Keyword(s)")
+}

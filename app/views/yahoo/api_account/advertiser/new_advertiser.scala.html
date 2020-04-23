@@ -1,0 +1,41 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    advertiser_form: Form[models.mongodb.yahoo.Yahoo.Advertiser],
+    bulk_import_errors: List[String]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+@main(title="adVanced - New Yahoo Gemini Advertiser", chart=false) {
+    @form(controllers.yahoo.api_account.advertiser.routes.AdvertiserController.createAdvertiser) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Yahoo Advertiser
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(advertiser_form("advertiserName"), '_label -> "Advertiser Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(advertiser_form("apiId"), '_label -> "API ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(advertiser_form("currency"), '_label -> "Currency", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(advertiser_form("timeZone"), '_label -> "Time Zone", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Create</button>
+                </div>
+            </div>
+        </div>
+    }
+    @_bulk_import(bulk_import_errors, controllers.yahoo.api_account.advertiser.routes.AdvertiserController.bulkNewAdvertiser, "Advertiser(s)")
+}

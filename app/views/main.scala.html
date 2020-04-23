@@ -1,0 +1,412 @@
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+
+@import scala.concurrent.Await
+@import scala.concurrent.ExecutionContext.Implicits.global
+@import scala.concurrent.duration._
+@import Shared.Shared.PendingCacheStructure
+@import models.mongodb.UserAccount
+@(title: String, chart: Boolean)(content: Html)(implicit request: AuthenticatedRequest[Any])
+@userAccount = @{ request.subject.get.asInstanceOf[UserAccount] }
+@isAdvertiser = @{ UserAccount.isAdvertiser(userAccount) }
+@isAdministrator = @{ UserAccount.isAdministrator(userAccount) }
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/html" lang="en">
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="adVanced - admin">
+        <meta name="author" content="leadkarma">
+
+        <title>@title</title>
+            <!-- Bootstrap Core CSS -->
+        <link href="@routes.Assets.versioned("stylesheets/bootstrap.min.css")" rel="stylesheet">
+
+            <!-- MetisMenu CSS -->
+        <link href="@routes.Assets.versioned("stylesheets/plugins/metisMenu/metisMenu.min.css")" rel="stylesheet">
+
+            <!-- Timeline CSS -->
+        <link href="@routes.Assets.versioned("stylesheets/plugins/timeline.css")" rel="stylesheet">
+
+            <!-- Custom CSS -->
+        <link href="@routes.Assets.versioned("stylesheets/sb-admin-2.css")" rel="stylesheet">
+
+            <!-- Morris Charts CSS -->
+        <link href="@routes.Assets.versioned("stylesheets/plugins/morris.css")" rel="stylesheet">
+
+            <!-- Custom Fonts -->
+        <link href="@routes.Assets.versioned("stylesheets/font-awesome-4.1.0/css/font-awesome.min.css")" rel="stylesheet">
+
+            <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+            <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+            <!--[if lt IE 9]>
+          <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+          <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+        <![endif]-->
+
+        <link rel="stylesheet" media="screen" href="@routes.Assets.versioned("stylesheets/main.css")"/>
+        <link rel="stylesheet" media="screen" href="@routes.Assets.versioned("stylesheets/chosen.css")"/>
+        <link rel="shortcut icon" type="image/png" href="@routes.Assets.versioned("images/favicon.ico")">
+
+            <!-- jQuery Version 1.11.0 -->
+        <script src="@routes.Assets.versioned("javascripts/jquery-1.11.0.js")"></script>
+
+        <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
+
+            <!-- Bootstrap Core JavaScript -->
+        <script src="@routes.Assets.versioned("javascripts/bootstrap.min.js")"></script>
+
+            <!-- Metis Menu Plugin JavaScript -->
+        <script src="@routes.Assets.versioned("javascripts/plugins/metisMenu/metisMenu.min.js")"></script>
+
+            <!-- Custom Theme JavaScript -->
+        <script src="@routes.Assets.versioned("javascripts/sb-admin-2.js")"></script>
+
+        <script src="@routes.Assets.versioned("javascripts/chosen.jquery.js")"></script>
+        <script type="text/javascript">
+        $(document).ready(function(){
+            $(".chosen-select").chosen({
+                create_option: true,
+                persistent_create_option: true,
+                skip_no_results: true
+            });
+            $(document).tooltip();
+        });
+        </script>
+    </head>
+    <body>
+        <div id="wrapper">
+            <nav class="navbar navbar-default navbar-static-top" role="navigation" style="margin-bottom: 0">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="/dashboard"><img src="@routes.Assets.versioned("images/icons-ppc.png")" height="32" width="32" /><i>ad</i><b>Vanced</b> - @userAccount.userName</a>
+                </div>
+                <ul class="nav navbar-top-links navbar-right">
+                	<!-- Don't show the tasks or alerts if the user is an advertiser -->
+                	@if(!UserAccount.isAdvertiser(request.subject.get.asInstanceOf[UserAccount])){
+	                    <li>
+	                        @if(Await.result(Shared.Shared.redisClient.lrange(request.subject.get.identifier + Shared.Shared.cache_ext, 0, -1).map(cache => cache), 10 seconds).length < 1) {
+	                                <button type="button" class="btn btn-success btn-circle disabled" id="btn"><i class="fa fa-check"></i></button>
+	                            } else {
+	                            <form action="/pending" method="post">
+	                                <button type="submit" class="btn btn-danger btn-circle" id="btn"><i class="fa fa-list"></i></button>
+	                            </form>
+	                            <script type="text/javascript">
+	                                    var timer;
+	                                    blinking($("#btn"));
+	                                    $("#btn").click(function () {
+	                                        clearInterval(timer);
+	                                        $("#blink").attr('checked', false);
+	                                    });
+	                                    function blinking(elm) {
+	                                        timer = setInterval(blink, 10);
+	                                        function blink() {
+	                                            elm.fadeOut(400, function () {
+	                                                elm.fadeIn(400);
+	                                            });
+	                                        }
+	                                    }
+	                            </script>
+	                        }
+	                    </li>
+	                    <li>&nbsp;</li>
+	                    <script type="text/javascript">
+	                    var socket = new WebSocket("@routes.TaskController.tasks.webSocketURL()")
+	                    socket.onmessage = function( event ) {
+	                        var task_data = jQuery.parseJSON( event.data );
+	                        var header_tasks = "";
+	                        var dashboard_tasks = "";
+	                        for(var i=0; i<task_data.length; i++) {
+	                           var completed = (!task_data[i].isRunning && parseInt(task_data[i].totalProcesses) == parseInt(task_data[i].totalCompletedProcesses));
+	                           header_tasks += '<li> \
+	                            <a href="/task/view/' + task_data[i].taskId + '"> \
+	                                <div> \
+	                                        <p> \
+	                                            <strong>Task ' + task_data[i].taskId + ' <i>(' + (!completed ? 'failed' : (task_data[i].running == 'false' ? 'successful' : task_data[i].elapsedTime)) + ')</i></strong> \
+	                                            <span class="pull-right text-muted">' + task_data[i].progress + '% Complete</span> \
+	                                            <p>' + task_data[i].totalCompletedProcesses + '/' + task_data[i].totalProcesses + ' processes (' + task_data[i].totalCompletedSubProcesses + '/' + task_data[i].totalSubProcesses + ' subprocesses)</p> \
+	                                        </p> \
+	                                    <div class="progress progress-striped active"> \
+	                                        <div class="progress-bar progress-bar-success" role="progressbar" aria-valuenow="' + task_data[i].progress + '" aria-valuemin="0" aria-valuemax="100" style="width: ' + task_data[i].progress + '%"> \
+	                                            <span class="sr-only">' + task_data[i].progress + '% Complete (success)</span> \
+	                                        </div> \
+	                                    </div> \
+	                                </div> \
+	                            </a> \
+	                            </li> \
+	                            <li class="divider"></li>';
+	
+	                        dashboard_tasks += '<a href="/task/view/' + task_data[i].taskId + '" class="list-group-item"> \
+	                                <i class="fa fa-upload fa-fw"></i>Task ' + task_data[i].taskId + ' (' + (!completed ? 'failed' : (task_data[i ].running == 'false' ? 'successful' : task_data[i ].elapsedTime)) + ') \
+	                                            <span class="pull-right text-muted small"><em>' + task_data[i].progress + '% Complete</em></span> \
+	                                    <div class="progress progress-striped active"> \
+	                                        <div class="progress-bar progress-bar-success" role="progressbar" aria-valuenow="' + task_data[i].progress + '" aria-valuemin="0" aria-valuemax="100" style="width: ' + task_data[i].progress + '%"> \
+	                                            <span class="sr-only">' + task_data[i].progress + '% Complete (success)</span> \
+	                                        </div> \
+	                                    </div> \
+	                                    <span>' + task_data[i].totalCompletedProcesses + '/' + task_data[i].totalProcesses + ' processes (' + task_data[i].totalCompletedSubProcesses + '/' + task_data[i].totalSubProcesses + ' subprocesses)</span> \
+	                            </a>';
+	                        }
+	
+	                        if(dashboard_tasks == "")
+	                            dashboard_tasks = '<a href="#" class="list-group-item" style="background-color: #f8f8f8;"><i class="fa fa-warning fa-fw"></i> No Tasks</a>';
+	
+	                        $('#tasks' ).html(header_tasks + '<li><a class="text-center" href="/task"><strong>See All Tasks</strong></a></li>');
+	                        $('#dashboard_tasks' ).html(dashboard_tasks);
+	                    }
+	                    </script>
+	                    <li class="dropdown">
+	                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+	                            <i class="fa fa-tasks fa-fw"></i>  <i class="fa fa-caret-down"></i>
+	                        </a>
+	                        <ul class="dropdown-menu dropdown-tasks" id="tasks">
+	                            <li>
+	                                <a class="text-center" href="/task">
+	                                    <strong>See All Tasks</strong>
+	                                </a>
+	                            </li>
+	                        </ul>
+	                    </li>
+	                    <li class="dropdown">
+	                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+	                            <i class="fa fa-bell fa-fw"></i>  <i class="fa fa-caret-down"></i>
+	                        </a>
+	                        <ul class="dropdown-menu dropdown-alerts">
+	                            <!--<li>
+	                                <a href="#">
+	                                    <div>
+	                                        <i class="fa fa-comment fa-fw"></i> New Comment
+	                                        <span class="pull-right text-muted small">4 minutes ago</span>
+	                                    </div>
+	                                </a>
+	                            </li>
+	                            <li class="divider"></li>
+	                            <li>
+	                                <a href="#">
+	                                    <div>
+	                                        <i class="fa fa-twitter fa-fw"></i> 3 New Followers
+	                                        <span class="pull-right text-muted small">12 minutes ago</span>
+	                                    </div>
+	                                </a>
+	                            </li>
+	                            <li class="divider"></li>
+	                            <li>
+	                                <a href="#">
+	                                    <div>
+	                                        <i class="fa fa-envelope fa-fw"></i> Message Sent
+	                                        <span class="pull-right text-muted small">4 minutes ago</span>
+	                                    </div>
+	                                </a>
+	                            </li>
+	                            <li class="divider"></li>
+	                            <li>
+	                                <a href="#">
+	                                    <div>
+	                                        <i class="fa fa-tasks fa-fw"></i> New Task
+	                                        <span class="pull-right text-muted small">4 minutes ago</span>
+	                                    </div>
+	                                </a>
+	                            </li>
+	                            <li class="divider"></li>
+	                            <li>
+	                                <a href="#">
+	                                    <div>
+	                                        <i class="fa fa-upload fa-fw"></i> Campaign Altered
+	                                        <span class="pull-right text-muted small">4 minutes ago</span>
+	                                    </div>
+	                                </a>
+	                            </li>
+	                            <li class="divider"></li>-->
+	                            <li>
+	                                <a class="text-center" href="#">
+	                                    <strong>See All Alerts</strong>
+	                                </a>
+	                            </li>
+	                        </ul>
+	                    </li>
+	                }
+                    <li class="dropdown">
+                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                            <i class="fa fa-user fa-fw"></i>  <i class="fa fa-caret-down"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-user">
+                            <li><a href="/user-profile/@{userAccount.userName}/"><i class="fa fa-user fa-fw"></i> User Profile</a>
+                            </li>
+                            <li><a href="/notification-configuration"><i class="fa fa-gear fa-fw"></i> Notification Configuration</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li><a href="/logout"><i class="fa fa-sign-out fa-fw"></i> Logout</a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="navbar-default sidebar" role="navigation">
+                    <div class="sidebar-nav navbar-collapse">
+                        <ul class="nav" id="side-menu">
+                            <li>
+                                <a @if(request.uri.matches("/dashboard.*")) { class="active" } href="/dashboard"><i class="fa fa-dashboard fa-fw"></i> Dashboard</a>
+                            </li>
+			                <!--  Don't show the account content sidebar if the user is an advertiser. -->
+                            @if(!UserAccount.isAdvertiser(request.subject.get.asInstanceOf[UserAccount])){
+	                            <li @if(request.uri.matches("/google.*")) { class="active" }>
+	                                <a href="#"><i class="fa fa-edit fa-fw"></i> Google<span class="fa arrow"></span></a>
+	                                <ul class="nav nav-second-level @if(request.uri.matches("/google.*")) { active }">
+	                                	<li>
+	                                		<a @if(request.uri.startsWith("/google/mcc/account/attribution")){ class="active" } href="/google/mcc/account/attribution">Accounts</a>
+	                                	</li>
+	                                	<li>
+	                                		<a @if(request.uri.startsWith("/google/mcc/account/campaign/attribution")){ class="active" } href="/google/mcc/account/campaign/attribution">Campaigns</a>
+	                                	</li>
+	                                	<li>
+	                                		<a @if(request.uri.startsWith("/google/mcc/account/campaign/adgroup/attribution")){ class="active" } href="/google/mcc/account/campaign/adgroup/attribution">Ad Groups</a>
+	                                	</li>
+	                                	<li>
+	                                		<a @if(request.uri.startsWith("/google/mcc/account/campaign/adgroup/ad/attribution")){ class="active" } href="/google/mcc/account/campaign/adgroup/ad/attribution">Ads</a>
+	                                	</li>
+	                                    <li @if(request.uri.startsWith("/google/mcc/account/campaign/criterion")) { class="active" }>
+	                                        <a @if(request.uri.startsWith("/google/mcc/account/campaign/criterion")) { class="active" }  href="/google/mcc/account/campaign/criterion">Campaign Criterion<span class="fa arrow"></span></a>
+	                                        <ul class="nav nav-third-level">
+	                                            <li>
+	                                                <a @if(request.uri.matches("/google/mcc/account/campaign/criterion/keyword.*")) { class="active" } href="/google/mcc/account/campaign/criterion/keyword">Keywords</a>
+	                                            </li>
+	                                            <li>
+	                                                <a @if(request.uri.matches("/google/mcc/account/campaign/criterion/proximity.*")) { class="active" } href="/google/mcc/account/campaign/criterion/proximity">Proximity</a>
+	                                            </li>
+	                                            <li>
+	                                                <a @if(request.uri.matches("/google/mcc/account/campaign/criterion/ad-schedule.*")) { class="active" } href="/google/mcc/account/campaign/criterion/ad-schedule">Ad Schedule</a>
+	                                            </li>
+	                                            <li>
+	                                                <a @if(request.uri.matches("/google/mcc/account/campaign/criterion/bidding-strategy-configuration.*")) { class="active" } href="/google/mcc/account/campaign/criterion/bidding-strategy-configuration">Bidding Strategy</a>
+	                                            </li>
+	                                            <li>
+	                                                <a @if(request.uri.matches("/google/mcc/account/campaign/criterion/budget.*")) { class="active" } href="/google/mcc/account/campaign/criterion/budget">Budgets</a>
+	                                            </li>
+	                                        </ul>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/google/mcc/account/campaign/adgroup/criterion/.*")) { class="active" } href="/google/mcc/account/campaign/adgroup/criterion/">Ad Group Criterion<span class="fa arrow"></span></a>
+	                                        <ul class="nav nav-third-level">
+	                                            <li>
+	                                                <a @if(request.uri.matches("/google/mcc/account/campaign/adgroup/criterion/keyword.*")) { class="active" } href="/google/mcc/account/campaign/adgroup/criterion/keyword">Keywords</a>
+	                                            </li>
+	                                            <li>
+	                                                <a @if(request.uri.matches("/google/mcc/account/campaign/adgroup/criterion/bidding-strategy-configuration.*")) { class="active" } href="/google/mcc/account/campaign/adgroup/criterion/bidding-strategy-configuration">Bidding Strategy</a>
+	                                            </li>
+	                                        </ul>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/google/alert.*")) { class="active" } href="/google/alert">Alerts</a>
+	                                    </li>
+	                                </ul>
+	                            </li>
+	                            <li>
+	                                <a href="#"><i class="fa fa-edit fa-fw"></i> BingAds<span class="fa arrow"></span></a>
+	                                <ul class="nav nav-second-level @if(request.uri.matches("/bingads.*")) { active }">
+	                                    <li>
+	                                        <a @if(request.uri.matches("/msn/api_account.*")) { class="active" } href="/msn/api_account">API Accounts</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/msn/api_account/customer/account_info.*")) { class="active" } href="/msn/api_account/customer/account_info">Account Info</a>
+	                                    </li>
+										<li>
+											<a @if(request.uri.matches("/msn/customer/account/campaign.*")) { class="active" } href="/msn/customer/account/campaign">Campaigns</a>
+										</li>
+										<li>
+											<a @if(request.uri.matches("/msn/customer/account/campaign/adgroup.*")) { class="active" } href="/msn/customer/account/campaign/adgroup">AdGroups</a>
+										</li>
+	                                </ul>
+	                            </li>
+	                            <li>
+	                                <a href="#"><i class="fa fa-edit fa-fw"></i> Yahoo Gemini<span class="fa arrow"></span></a>
+	                                <ul class="nav nav-second-level @if(request.uri.matches("/yahoo.*")) { active }">
+	                                    <li>
+	                                        <a @if(request.uri.matches("/yahoo/api_account.*")) { class="active" } href="/yahoo/api_account">API Account</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser.*")) { class="active" } href="/yahoo/api_account/advertiser">Advertisers</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser/campaign/.*")) { class="active" }  href="/yahoo/api_account/advertiser/campaign/">Campaigns</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser/campaign/adgroup/.*")) { class="active" } href="/yahoo/api_account/advertiser/campaign/ad-group/">Ad Groups</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser/campaign/adgroup/ad/.*")) { class="active" } href="/yahoo/api_account/advertiser/campaign/ad-group/ad/">Ads</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser/campaign/adgroup/keyword/.*")) { class="active" } href="/yahoo/api_account/advertiser/campaign/ad-group/keyword/">Keywords</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/yahoo/alert.*")) { class="active" } href="/yahoo/alert">Alerts</a>
+	                                    </li>
+	                                </ul>
+	                            </li>
+	                            <li @if(request.uri.matches("/facebook.*")) { class="active" }>
+	                                <a href="#"><i class="fa fa-edit fa-fw"></i> Facebook<span class="fa arrow"></span></a>
+	                                <ul class="nav nav-second-level @if(request.uri.matches("/facebook.*")) { active }">
+										<li @if(request.uri.startsWith("/facebook/business")) { class="active" }>
+											<a href="#"><i class="fa fa-edit fa-fw"></i> Business<span class="fa arrow"></span></a>
+											<ul class="nav nav-third-level @if(request.uri.matches("/facebook/business.*")) { active }">
+												<li>
+													<a @if(request.uri.equals("/facebook/business")) { class="active" } href="/facebook/business">Business Accounts</a>
+												</li>
+												<li>
+													<a @if(request.uri.equals("/facebook/business/ad_study/split_test")) { class="active" } href="/facebook/business/ad_study/split_test">Split Tests</a>
+												</li>
+											</ul>
+										</li>
+	                                    <li>
+	                                        <a @if(request.uri.equals("/facebook/api_account")) { class="active" } href="/facebook/api_account">API Accounts</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/facebook/campaign.*")) { class="active" } href="/facebook/campaign">Campaigns</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/facebook/ad_set.*")) { class="active" } href="/facebook/ad_set">AdSets</a>
+	                                    </li>
+	                                    <li>
+	                                        <a @if(request.uri.matches("/facebook/ad.*")) { class="active" } href="/facebook/ad">Ads</a>
+	                                    </li>
+	                                </ul>
+	                            </li>
+                            }
+							<li @if(request.uri.matches("/tasks.*")) { class="active" } >
+								<a href="#"><i class="fa fa-history fa-fw"></i> Tasks<span class="fa arrow"></span></a>
+								<ul class="nav nav-second-level">
+									<li>
+										<a @if(request.uri.matches("/tasks/history.*")) { class="active" } href="/tasks/history/">Sync Task History</a>
+									</li>
+								</ul>
+							</li>
+                            <li @if(request.uri.matches("/settings.*")) { class="active" } >
+                                <a href="#"><i class="fa fa-wrench fa-fw"></i> Settings<span class="fa arrow"></span></a>
+                                <ul class="nav nav-second-level">
+                                    <li>
+                                        <a @if(request.uri.matches("/settings/user.*")) { class="active" } href="/user-profile/@{userAccount.userName}/">User Profile</a>
+                                    </li>
+                                    @if(isAdministrator){
+	                                    <li>
+	                                        <a @if(request.uri.matches("/settings/account.*")) { class="active" } href="/account-management">Account Manager</a>
+	                                    </li>
+                                    }
+                                    <li>
+                                        <a @if(request.uri.matches("/settings/notification-configuration.*")) { class="active" } href="/notification-configuration">Notification Configuration</a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <div id="page-wrapper">
+            @content
+            </div>
+        </div>
+    </body>
+</html>

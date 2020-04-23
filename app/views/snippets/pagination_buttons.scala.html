@@ -1,0 +1,42 @@
+@(
+    currentPageSize: Int,
+    currentPage: Int,
+    currentOrderBy: Int,
+    totalCount: Int,
+    currentFilter: String,
+    listFunction: (Int, Int, Int, String) => Call
+)(implicit request: play.api.mvc.Request[Any])
+
+<div class="col-lg-6">
+    <div class="dataTables_paginate paging_simple_numbers" id="dataTables_paginate"><ul class="pagination">
+        <li class="paginate_button previous @if(currentPage < 1) { disabled }" aria-controls="dataTables" tabindex="0" id="dataTables_previous">
+            <a href="@listFunction(
+                currentPage - 1,
+                currentPageSize,
+                currentOrderBy,
+                currentFilter
+            )">Previous</a>
+        </li>
+        @for(p <- 0 to (totalCount / currentPageSize)) {
+            @if(p == currentPage || (p > (currentPage - 3) && p < (currentPage + 3)) || p > ((totalCount / currentPageSize) - 3)) {
+                <li class="paginate_button @if(p == currentPage) { active } " aria-controls="dataTables" tabindex="0">
+                    <a href="@listFunction(
+                        p,
+                        currentPageSize,
+                        currentOrderBy,
+                        currentFilter
+                    )">@(p + 1)</a>
+                </li>
+            }
+        }
+        <li class="paginate_button next" aria-controls="dataTables" tabindex="0" id="dataTables_next">
+            <a href="@listFunction(
+                currentPage + 1,
+                currentPageSize,
+                currentOrderBy,
+                currentFilter
+            )">Next</a>
+        </li>
+    </ul>
+    </div>
+</div>

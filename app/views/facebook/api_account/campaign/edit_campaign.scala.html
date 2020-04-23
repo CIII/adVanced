@@ -1,0 +1,65 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import helpers.facebook.api_account.campaign.CampaignControllerHelper._
+@import helpers.facebook._
+@(
+    campaign_id: String,
+    campaign_form: Form[helpers.facebook.api_account.campaign.CampaignControllerHelper.CampaignForm]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+@main(title="adVanced - Edit Facebook Campaign", chart=false) {
+    @form(controllers.facebook.api_account.campaign.routes.CampaignController.editCampaign(campaign_id)) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    Edit Facebook Campaign
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(campaign_form("apiId"), '_label -> "Api ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @select(campaign_form("accountId"), accountOptions, '_label -> "Account ID", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @checkbox(campaign_form("budgetRebalanceFlag"), '_label -> "Budget Rebalance Flag", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @select(campaign_form("buyingType"), buyingTypeOptions, '_label -> "Buying Type", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @checkbox(campaign_form("canUseSpendCap"), '_label -> "Can USe Spend Cap?", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @select(campaign_form("configuredStatus"), statusOptions, '_label -> "Configured Status", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(campaign_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(campaign_form("objective"), '_label -> "Objective", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(campaign_form("spend_cap"), '_label -> "Spend Cap", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputDate(campaign_form("start_time"), '_label -> "Start Time", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputDate(campaign_form("stop_time"), '_label -> "Stop Time", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+
+    }
+}

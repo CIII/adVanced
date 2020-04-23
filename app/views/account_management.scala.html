@@ -1,0 +1,43 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import models.mongodb.UserAccount
+@import helper._
+
+@(users: List[UserAccount])(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@main(title="adVanced - Account Manager", chart=false) {
+	<div class="row">
+        <div class="col-lg-12">
+            <table>
+                <tr>
+                    <td>
+                        <h3 class="page-header">User Profiles</h3>
+                    </td>
+                    <td>&nbsp;</td>
+                    <td align="center">
+                        <a href="/user-profile" class="btn btn-primary btn-xs">New User</a>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    @users.size Profile(s)
+                </div>
+                <div class="panel-body">
+                	<div>
+                		<ul class="list-group">
+		                	@for(user <- users){
+	                			<a class="btn btn-block btn-default" href="/user-profile/@{user.userName}/">@user.userName</a>
+		                	}
+		               	</ul>
+                	</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

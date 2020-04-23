@@ -1,0 +1,13 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@()(implicit request: play.api.mvc.Request[Any])
+
+@import helper._
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+<div style="text-align: center;">
+    <h3>Permission Denied - You don't have sufficient permissions to view this page.</h3>
+    <form><input Type="button" VALUE="Back" onClick="history.go(-1);return true;"></form>
+</div>

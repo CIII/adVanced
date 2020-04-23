@@ -1,0 +1,10 @@
+@(header_fields: List[(String, Int, Int)])
+<thead>
+    <tr role="row">
+        @for(field <- header_fields) {
+            <th class="sorting" tabindex="0" aria-controls="dataTables" rowspan="@field._2" colspan="@field._3" aria-label="@field._1: activate to sort column" aria-sort="ascending">
+                @field._1
+            </th>
+        }
+    </tr>
+</thead>

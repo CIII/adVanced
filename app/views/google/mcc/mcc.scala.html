@@ -1,0 +1,33 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import util.charts._
+@(
+    chart: ClientChart,
+    cached_mcc_changes: List[Shared.Shared.PendingCacheStructure]
+)(implicit request: AuthenticatedRequest[Any])
+@args(args: (Symbol, Any)*) = @{
+    args
+}
+@main(title="adVanced - Google MCC Accounts", chart=false) {
+    <div class="row">
+        <div class="col-lg-12">
+            <h3 class="page-header">Google MCC Accounts
+                <span class="pull-right">
+                    <a href="/google/mcc/new" class="btn btn-primary btn-xs">New MCC</a>
+                </span>
+            </h3>
+        </div>
+        @views.html.snippets.pending_cached_changes_alert(cached_mcc_changes)
+    </div>
+    <div class="row">
+        <div class="col-lg-12">
+            @{
+              snippets._client_chart(
+                chartName="MCCs",
+                chart
+              )
+            }
+        </div>
+    </div>
+}

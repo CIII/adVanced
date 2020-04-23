@@ -1,0 +1,42 @@
+@import security._
+@import be.objectify.deadbolt.scala.views.html._
+@import be.objectify.deadbolt.scala.AuthenticatedRequest
+@(
+    api_account_id: String,
+    api_account_form: Form[models.mongodb.msn.Msn.ApiAccount]
+)(implicit request: AuthenticatedRequest[Any], messages: Messages)
+
+@import helper._
+    @args(args: (Symbol, Any)*) = @{
+        args
+    }
+
+@main(title="adVanced - Edit Msn API Account", chart=false) {
+    @form(controllers.msn.api_account.routes.ApiAccountController.editApiAccount(api_account_id)) {
+        <div class="row">
+            <br />
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    New Msn API Account
+                </div>
+                <div class="panel-body">
+                    <div class="form-group has-warning">
+                    @inputText(api_account_form("name"), '_label -> "Name", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group has-warning">
+                    @inputText(api_account_form("userName"), '_label -> "Username", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(api_account_form("password"), '_label -> "Password", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <div class="form-group">
+                    @inputText(api_account_form("developerToken"), '_label -> "Developer Token", 'class -> "form-control", '_showConstraints -> false)
+                    </div>
+                    <br />
+                    <button type="submit" class="btn btn-outline btn-primary btn-lg">Save</button>
+                </div>
+            </div>
+        </div>
+
+    }
+}
