@@ -1,31 +1,22 @@
-/**
- *
- */
 package security
 
 import be.objectify.deadbolt.scala.{AuthenticatedRequest, DeadboltHandler, DynamicResourceHandler}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala.bson.Document
 import models.mongodb.{PermissionGroup, UserAccount}
-import play.api.Logger
-import play.api.mvc.{Request, Security}
+import play.api.Logging
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-
-class MyDynamicResourceHandler extends DynamicResourceHandler{
+class MyDynamicResourceHandler(implicit ec: ExecutionContext) extends DynamicResourceHandler with Logging {
 
   override def isAllowed[A](name: String, meta: Option[Any], deadboltHandler: DeadboltHandler, request: AuthenticatedRequest[A]): Future[Boolean] = {
     request.subject match {
       case Some(subject) =>
-        UserAccount.userAccountCollection.findOne(DBObject("userName" -> subject.identifier)) match {
-          case Some(userAccount) =>
-            Future(UserAccount.dboToUserAccount(userAccount).permissions.contains(PermissionGroup.withName(name)))
-          case None =>
-            Future(false)
-        }
+        val user = subject.asInstanceOf[UserAccount]
+        val permission = PermissionGroup.withName(name)
+        Future.successful(user.permissions.exists(_.value == permission.value))
       case None =>
-        Future(false)
+        Future.successful(false)
     }
   }
 
@@ -34,5 +25,13 @@ class MyDynamicResourceHandler extends DynamicResourceHandler{
     meta: Option[Any],
     deadboltHandler: DeadboltHandler,
     request: AuthenticatedRequest[A]
-  ): Future[Boolean] = Future(false)
+  ): Future[Boolean] = {
+    request.subject match {
+      case Some(subject) =>
+        val user = subject.asInstanceOf[UserAccount]
+        Future.successful(user.permissions.exists(_.value == permissionValue))
+      case None =>
+        Future.successful(false)
+    }
+  }
 }

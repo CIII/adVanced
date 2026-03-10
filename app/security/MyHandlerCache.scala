@@ -1,12 +1,13 @@
 package security
 
-import javax.inject.Singleton
-
+import javax.inject.{Inject, Singleton}
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{DeadboltHandler, HandlerKey}
 
+import scala.concurrent.ExecutionContext
+
 @Singleton
-class MyHandlerCache extends HandlerCache {
+class MyHandlerCache @Inject()(implicit ec: ExecutionContext) extends HandlerCache {
 
   val defaultHandler: DeadboltHandler = new MyDeadboltHandler
 
