@@ -1,11 +1,11 @@
 package sync.msn.bingads.account
 
-import com.microsoft.bingads.customermanagement._
+import com.microsoft.bingads.v13.customermanagement._
 import sync.msn.bingads.BingAdsHelper
 
 class AccountHelper(BingAds: BingAdsHelper) {
 
-  def getAccount(accountId: Long): Option[Account] = {
+  def getAccount(accountId: Long): Option[AdvertiserAccount] = {
     val getAccountRequest = new GetAccountRequest
     getAccountRequest.setAccountId(accountId)
     val result = BingAds.customerManagementService.getService.getAccount(getAccountRequest)
@@ -16,13 +16,11 @@ class AccountHelper(BingAds: BingAdsHelper) {
   }
 
   def findAccountsOrCustomersInfo(
-    applicationScope: ApplicationType = ApplicationType.ADVERTISER,
     filter: Option[String] = None,
     top: Int = 5000
   ): ArrayOfAccountInfoWithCustomerData = {
     val findAccountsOrCustomersInfoRequest = new FindAccountsOrCustomersInfoRequest()
     findAccountsOrCustomersInfoRequest.setFilter(filter.getOrElse(""))
-    findAccountsOrCustomersInfoRequest.setApplicationScope(applicationScope)
     findAccountsOrCustomersInfoRequest.setTopN(top)
     val result = BingAds.customerManagementService.getService.findAccountsOrCustomersInfo(findAccountsOrCustomersInfoRequest)
     result.getAccountInfoWithCustomerData

@@ -1,10 +1,14 @@
 package sync.facebook.process.api_account
 
 import Shared.Shared._
-import akka.actor.{Actor, Props}
-import akka.event.Logging
-import com.mongodb.casbah.Imports.{ObjectId, _}
+import org.apache.pekko.actor.{Actor, Props}
+import org.apache.pekko.event.Logging
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import com.mongodb.client.model.{FindOneAndReplaceOptions, ReturnDocument}
+import org.bson.types.ObjectId
 import models.mongodb.facebook.Facebook._
+import models.mongodb.MongoExtensions._
 import sync.facebook.ads.FacebookMarketingHelper
 import sync.facebook.ads.user._
 import sync.facebook.process.api_account.campaign.CampaignActor
@@ -17,7 +21,7 @@ class ApiAccountActor extends Actor {
     case cache_msg: PendingCacheMessage =>
       val cache: PendingCacheStructure = cache_msg.cache.get
       try {
-        val api_account_data = dboToApiAccount(cache.changeData.asDBObject)
+        val api_account_data = documentToApiAccount(cache.changeData)
         log.info("Processing API Account %s -> %s -> %s -> %s".format(
           cache.changeCategory,
           cache.changeType,
@@ -32,22 +36,18 @@ class ApiAccountActor extends Actor {
           api_account_data.accessToken
         ))
 
-        facebookApiAccountCollection.findAndModify(
-          DBObject("accountId" -> api_account.get.accountId),
-          null,
-          null,
-          false,
-          apiAccountToDBO(api_account.get),
-          true,
-          true
+        facebookApiAccountCollection.findOneAndReplaceSync(
+          Document("accountId" -> api_account.get.accountId),
+          apiAccountToDocument(api_account.get),
+          new FindOneAndReplaceOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
         )
         val facebookMarketingHelper = new FacebookMarketingHelper(
           accountId = api_account_data.accountId,
           applicationSecret = api_account_data.applicationSecret,
           accessToken = api_account_data.accessToken
         )
-        set_subprocess_count(taskKey(Left(cache_msg.request.get)), cache, 1)
-        facebookManagementActorSystem.actorOf(Props(new CampaignActor)) ! FacebookCampaignDataPullRequest(
+        set_subprocess_count(taskKey(cache_msg.requestUsername.getOrElse("")), cache, 1)
+        context.system.actorOf(Props(new CampaignActor)) ! FacebookCampaignDataPullRequest(
           facebookMarketingHelper,
           ApiAccountObject(
             api_account.get._id.get,
@@ -56,10 +56,10 @@ class ApiAccountActor extends Actor {
           recursivePull = true,
           pushToExternal = true
         )
-        complete_subprocess(taskKey(Left(cache_msg.request.get)), cache)
+        complete_subprocess(taskKey(cache_msg.requestUsername.getOrElse("")), cache)
       } catch {
         case e: Exception =>
-          e.printStackTrace()
+          log.error(s"Error processing Facebook API account: ${e.getMessage}")
           log.info("Error Retrieving Data for API Account (%s) - %s".format(
             cache.id,
             e.getMessage
@@ -69,9 +69,9 @@ class ApiAccountActor extends Actor {
       }
     case _ =>
       try {
-        facebookApiAccountCollection.find().toArray.foreach {
+        facebookApiAccountCollection.find().toList.foreach {
           api_account_obj =>
-            val api_account = dboToApiAccount(api_account_obj.asDBObject)
+            val api_account = documentToApiAccount(api_account_obj)
             val facebookMarketingHelper = new FacebookMarketingHelper(
               accountId = api_account.accountId,
               applicationSecret = api_account.applicationSecret,
@@ -82,7 +82,7 @@ class ApiAccountActor extends Actor {
 
             log.info("Campaigns to iterate over: " + campaigns.map(_.getFieldName).mkString(", "))
 
-            facebookManagementActorSystem.actorOf(Props(new CampaignActor)) ! FacebookCampaignDataPullRequest(
+            context.system.actorOf(Props(new CampaignActor)) ! FacebookCampaignDataPullRequest(
               facebookMarketingHelper,
               ApiAccountObject(
                 api_account._id.get,
@@ -97,7 +97,7 @@ class ApiAccountActor extends Actor {
           log.info("Error Retrieving Incremental Data for API Account - %s".format(
             e.toString
           ))
-          e.printStackTrace()
+          log.error(s"Error processing Facebook API account: ${e.getMessage}")
       } finally {
         context.stop(self)
       }

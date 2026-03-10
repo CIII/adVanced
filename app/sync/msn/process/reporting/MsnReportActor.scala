@@ -1,15 +1,16 @@
 package sync.msn.process.reporting
 
 import Shared.Shared.{MsnReportRequest, MsnReportType}
-import akka.actor.Actor
-import akka.event.Logging
-import com.microsoft.bingads.reporting._
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.event.Logging
+import com.microsoft.bingads.v13.reporting._
 import models.mongodb.Utilities._
 import models.mongodb.msn.Msn._
+import org.mongodb.scala.bson.Document
 import sync.msn.bingads.BingAdsHelper
-import util.MongoJson
 import sync.msn.bingads.ReportHelper._
 
+import scala.concurrent.blocking
 import scala.io.Source
 import scala.util.control.Breaks._
 
@@ -50,7 +51,7 @@ class MsnReportActor extends Actor {
         var reportingOperationStatus: Option[ReportingOperationStatus] = None
         breakable {
           for (i <- 0 to 30) {
-            Thread.sleep(5000)
+            blocking { Thread.sleep(5000) }
             reportingOperationStatus = Some(reportingDownloadOperation.getStatusAsync(null).get())
             if (reportingOperationStatus.get.getStatus == ReportRequestStatusType.SUCCESS) {
               break()
@@ -70,13 +71,13 @@ class MsnReportActor extends Actor {
                 sanitized_item.+(k.replace(".", "") -> value)
               }
             }
-            msnReportCollection(msnReportRequest.reportType).insert(MongoJson.fromJson(sanitized_item))
+            msnReportCollection.insertOne(Document(sanitized_item.toString()))
           }
         }
         resultFile.delete()
       } catch {
         case e: Exception =>
-          e.printStackTrace()
+          log.error(s"Error processing MSN report: ${e.getMessage}")
           log.info("Error Processing Report (%s) - %s".format(
             msnReportRequest.reportType,
             e.toString

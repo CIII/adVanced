@@ -1,10 +1,13 @@
 package sync.msn.process.management.api_account
 
 import Shared.Shared._
-import akka.actor.{Actor, Props}
-import akka.event.Logging
-import com.mongodb.casbah.Imports._
+import org.apache.pekko.actor.{Actor, Props}
+import org.apache.pekko.event.Logging
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import com.mongodb.client.model.ReplaceOptions
 import models.mongodb.msn.Msn._
+import models.mongodb.MongoExtensions._
 import org.bson.types.ObjectId
 import sync.msn.bingads.BingAdsHelper
 import sync.msn.bingads.account.AccountHelper
@@ -26,13 +29,13 @@ class ApiAccountActor extends Actor {
             cache.id
           ))
 
-          val api_account_data = dboToApiAccount(cache.changeData.asDBObject)
+          val api_account_data = documentToApiAccount(cache.changeData)
 
           var api_account: Option[models.mongodb.msn.Msn.ApiAccount] = None
-          msnApiAccountCollection.findOne(DBObject("developerToken" -> api_account_data.developerToken)) match {
+          msnApiAccountCollection.findOne(Document("developerToken" -> api_account_data.developerToken)) match {
             case Some(existingApiAccount) =>
               api_account = Some(models.mongodb.msn.Msn.ApiAccount(
-                existingApiAccount._id,
+                Option(existingApiAccount.getObjectId("_id")),
                 api_account_data.name,
                 api_account_data.userName,
                 api_account_data.password,
@@ -48,7 +51,7 @@ class ApiAccountActor extends Actor {
               ))
           }
 
-          msnApiAccountCollection.update(DBObject("developerToken" -> api_account.get.developerToken), apiAccountToDbo(api_account.get), upsert = true)
+          msnApiAccountCollection.replaceOne(Document("developerToken" -> api_account.get.developerToken), apiAccountToDocument(api_account.get), new ReplaceOptions().upsert(true))
 
           val bingAdsHelper = new BingAdsHelper(api_account.get.userName, api_account.get.password, api_account.get.developerToken)
           val accountHelper = new AccountHelper(bingAdsHelper)
@@ -56,7 +59,7 @@ class ApiAccountActor extends Actor {
           val data = accountHelper.findAccountsOrCustomersInfo().getAccountInfoWithCustomerDatas
 
           for (i <- 0 until data.size()) {
-            msnManagementActorSystem.actorOf(Props(new AccountInfoActor)) ! MsnAccountInfoDataPullRequest(
+            context.system.actorOf(Props(new AccountInfoActor)) ! MsnAccountInfoDataPullRequest(
               bingAdsHelper,
               api_account.get._id.get,
               accountHelper.getAccount(data.get(i).getAccountId).get,
@@ -66,7 +69,7 @@ class ApiAccountActor extends Actor {
           }
         } catch {
           case e: Exception =>
-            e.printStackTrace()
+            log.error(s"Error processing MSN API account: ${e.getMessage}")
             log.info("Error Retrieving Data for ApiAccount - %s".format(
               e.toString
             ))

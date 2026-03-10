@@ -1,6 +1,6 @@
 package sync.msn.bingads.account
 
-import com.microsoft.bingads.v11.campaignmanagement._
+import com.microsoft.bingads.v13.campaignmanagement._
 import sync.msn.bingads.BingAdsHelper
 
 class CampaignHelper(BingAds: BingAdsHelper) {

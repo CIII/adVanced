@@ -1,7 +1,7 @@
 package sync.msn.bingads
 
 import Shared.Shared.MsnReportRequest
-import com.microsoft.bingads.reporting._
+import com.microsoft.bingads.v13.reporting._
 
 object ReportHelper {
 
@@ -21,12 +21,12 @@ object ReportHelper {
     report.getScope.setAdGroups(null)
 
     val reportTime = new ReportTime
-    val startDate = new com.microsoft.bingads.reporting.Date
+    val startDate = new com.microsoft.bingads.v13.reporting.Date
     startDate.setDay(msnReportRequest.startDate.getDayOfMonth)
     startDate.setMonth(msnReportRequest.startDate.getMonthOfYear)
     startDate.setYear(msnReportRequest.startDate.getYear)
 
-    val endDate = new com.microsoft.bingads.reporting.Date
+    val endDate = new com.microsoft.bingads.v13.reporting.Date
     endDate.setDay(msnReportRequest.startDate.getDayOfMonth)
     endDate.setMonth(msnReportRequest.startDate.getMonthOfYear)
     endDate.setYear(msnReportRequest.startDate.getYear)

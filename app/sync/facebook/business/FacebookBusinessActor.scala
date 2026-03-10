@@ -1,9 +1,10 @@
 package sync.facebook.business
 
-import akka.actor.{Actor, Props}
+import org.apache.pekko.actor.{Actor, Props}
 import Shared.Shared._
+import models.mongodb.MongoExtensions._
 import models.mongodb.facebook.Facebook._
-import akka.event.Logging
+import org.apache.pekko.event.Logging
 import sync.shared.Facebook._
 import sync.facebook.business.ad_study._
 
@@ -21,12 +22,12 @@ class FacebookBusinessActor extends Actor{
         // Iterate over business accounts and sync information for each.
         facebookBusinessAccountCollection.find().toArray.foreach{
           bizAccountObj =>
-            val fbBizAccount = FacebookBusinessAccount.fromDBO(bizAccountObj)
+            val fbBizAccount = FacebookBusinessAccount.fromDocument(bizAccountObj)
             val fbAdHelper = new FacebookAdStudyHelper(fbBizAccount, log)
             
             // Pull Split Test data
             fbAdHelper.getSplitTests.foreach(
-              splitTest => facebookManagementActorSystem.actorOf(Props(new FacebookSplitTestActor)) ! FacebookSplitTestDataPullRequest(
+              splitTest => context.system.actorOf(Props(new FacebookSplitTestActor)) ! FacebookSplitTestDataPullRequest(
                 splitTest,
                 fbAdHelper,
                 false
@@ -39,7 +40,7 @@ class FacebookBusinessActor extends Actor{
           log.debug("Error retrieving incremental data for Facebook Business account: %s".format(
               e.toString
           ))
-          e.printStackTrace
+          log.error(s"Error retrieving Facebook Business account data: ${e.getMessage}")
       } finally {
         context.stop(self)
       }

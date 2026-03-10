@@ -1,17 +1,21 @@
 package sync.facebook.process.api_account.campaign
 
 import Shared.Shared._
-import akka.actor.{Actor, Props}
-import akka.event.Logging
+import org.apache.pekko.actor.{Actor, Props}
+import org.apache.pekko.event.Logging
+// TODO: Update to facebook-java-business-sdk v20
 import com.facebook.ads.sdk.Campaign
-import com.mongodb.casbah.Imports.{ObjectId, _}
-import com.mongodb.util.JSON
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import com.mongodb.client.model.{FindOneAndUpdateOptions, ReturnDocument}
 import helpers.facebook.api_account.campaign.CampaignControllerHelper._
+import models.mongodb.MongoExtensions._
 import models.mongodb.facebook.Facebook._
 import org.bson.types.ObjectId
 import sync.facebook.ads.FacebookMarketingHelper
 import sync.facebook.ads.user._
 import sync.shared.Facebook._
+import models.mongodb.MongoExtensions._
 
 import scala.collection.mutable.ListBuffer
 
@@ -36,30 +40,26 @@ class CampaignActor extends Actor {
               campaignObject.campaign.getId
             ))
 
-            val qry = DBObject(
+            val qry = Document(
               "apiAccountObjId" -> campaignObject.apiAccountObject.apiAccountObjId,
               "apiId" -> campaignObject.campaign.getId
             )
-            val newData = DBObject(
+            val newData = Document(
               "classPath" -> campaignObject.campaign.getClass.getCanonicalName,
-              "object" -> JSON.parse(gson.toJson(campaignObject.campaign)).asInstanceOf[DBObject]
+              "object" -> Document(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(campaignObject.campaign))
             )
 
-            facebookCampaignCollection.findAndModify(
+            facebookCampaignCollection.findOneAndUpdateSync(
               qry,
-              null,
-              null,
-              false,
-              DBObject("$set" -> DBObject("campaign" -> newData)),
-              true,
-              true
+              Document("$set" -> Document("campaign" -> newData)),
+              new FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
             ) match {
               case Some(campaign) =>
                 if (campaignDataPullRequest.recursivePull) {
-                  campaignObject.campaignObjId = Some(campaign.get("_id").asInstanceOf[ObjectId])
-                  facebookManagementActorSystem.actorOf(Props(new sync.facebook.process.api_account.campaign.ad_set.AdSetActor)) ! FacebookAdSetDataPullRequest(
+                  val updatedCampaignObject = campaignObject.copy(campaignObjId = Some(campaign.get("_id").asInstanceOf[ObjectId]))
+                  context.system.actorOf(Props(new sync.facebook.process.api_account.campaign.ad_set.AdSetActor)) ! FacebookAdSetDataPullRequest(
                     campaignDataPullRequest.marketinghelper,
-                    campaignObject,
+                    updatedCampaignObject,
                     true,
                     false
                   )
@@ -72,7 +72,7 @@ class CampaignActor extends Actor {
                 campaignObject.campaign.getFieldName,
                 e.getMessage
               ))
-              e.printStackTrace()
+              log.error(s"Error processing Facebook campaign: ${e.getMessage}")
           }
         }
       } finally {
@@ -80,7 +80,7 @@ class CampaignActor extends Actor {
       }
     case cache: PendingCacheStructure =>
       try {
-        val campaign_change = dboToCampaignForm(cache.changeData.asDBObject)
+        val campaign_change = documentToCampaignForm(cache.changeData)
         log.info("Processing %s -> %s -> %s -> %s".format(
           cache.changeCategory,
           cache.changeType,
@@ -88,8 +88,8 @@ class CampaignActor extends Actor {
           cache.id
         ))
 
-        val api_account_data = dboToApiAccount(facebookApiAccountCollection.findOne(
-          DBObject("_id" -> new ObjectId(campaign_change.parent.apiAccountObjId.get))
+        val api_account_data = documentToApiAccount(facebookApiAccountCollection.findOne(
+          Document("accountId" -> campaign_change.accountId)
         ).get)
 
         val marketingHelper = new FacebookMarketingHelper(

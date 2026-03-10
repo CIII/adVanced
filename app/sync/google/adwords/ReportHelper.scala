@@ -1,24 +1,33 @@
 package sync.google.adwords
 
 import java.util.Calendar
-
-import akka.event.LoggingAdapter
-import com.google.api.ads.adwords.lib.jaxb.v201609.ReportDefinitionReportType
-import com.mongodb.casbah.commons.MongoDBObject
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import models.mongodb.google._
 import models.mongodb.lynx.TQReporting
 import org.joda.time.DateTime
-import play.api.libs.json.{JsObject, Json}
+import play.api.Logging
+import play.api.libs.json.{JsNumber, JsObject, Json}
 
-object ReportHelper {
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
+/**
+ * Helper for parsing Google Ads report data.
+ *
+ * TODO: The report download mechanism needs to be re-implemented with
+ * Google Ads API v18 searchStream() instead of the old ReportDownloader.
+ * The report type enum (ReportDefinitionReportType) has been removed.
+ */
+object ReportHelper extends Logging {
   def getDateString: String = {
     val cal = Calendar.getInstance()
     cal.add(Calendar.DATE, -1)
-    val date =cal.get(Calendar.DATE)
-    val Year =cal.get(Calendar.YEAR)
-    val Month1 =cal.get(Calendar.MONTH)
-    val Month = Month1+1
-    s"$Year-$Month-$date"
+    val date = cal.get(Calendar.DATE)
+    val year = cal.get(Calendar.YEAR)
+    val month = cal.get(Calendar.MONTH) + 1
+    s"$year-$month-$date"
   }
 
   def parseGoogleGeoPerformance(js: JsObject): GoogleGeoPerformance = {
@@ -122,58 +131,49 @@ object ReportHelper {
   }
 
   /**
-    * Given a Google report, find any Lynx sessions which match based on the attribution criteria, and pull
-    * the revenue and conf (summed) from the lynx session and add it to the google record.
-    */
-  def attributeLynxSessionData(log: LoggingAdapter, sanitizedItem: JsObject, reportType: ReportDefinitionReportType): JsObject = {
+   * Given a Google report, find any Lynx sessions which match based on the attribution criteria,
+   * and pull the revenue and conf (summed) from the lynx session and add it to the google record.
+   *
+   * TODO: Re-implement report type parameter with Google Ads API v18 report types.
+   */
+  def attributeLynxSessionData(log: org.apache.pekko.event.LoggingAdapter, sanitizedItem: JsObject, reportType: String): JsObject = {
     val attributionCriteriaList: List[(String, String)] = getAttributionCriteriaForReportType(reportType)
+    var matchDoc = Document(
+      "utm_source" -> "google",
+      "created_at" -> (sanitizedItem \ "day").get.as[String],
+      "g_device" -> normalizeDevice((sanitizedItem \ "device").get.as[String]),
+      "day_of_week" -> (sanitizedItem \ "day of week").get.as[String],
+      "g_network" -> normalizeNetwork((sanitizedItem \ "network (with search partners)").get.as[String])
+    )
+    for (attributionCriteria <- attributionCriteriaList) {
+      matchDoc = matchDoc ++ Document(attributionCriteria._2 -> (sanitizedItem \ attributionCriteria._1).get.as[String])
+    }
+
+    var groupDoc = Document("_id" -> null)
+    getAttributionFields.foreach { field =>
+      groupDoc = groupDoc ++ Document(field -> Document("$sum" -> ("$" + field)))
+    }
+
     val pipeline = List(
-      MongoDBObject(
-        "$match" -> {
-          var matchObj = MongoDBObject.newBuilder
-          matchObj += "utm_source" -> "google"
-          matchObj += "created_at" -> (sanitizedItem \ "day").get.as[String]
-          matchObj += "g_device" -> normalizeDevice((sanitizedItem \ "device").get.as[String])
-          matchObj += "day_of_week" -> (sanitizedItem \ "day of week").get.as[String]
-          matchObj += "g_network" -> normalizeNetwork((sanitizedItem \ "network (with search partners)").get.as[String])
-          for(attributionCriteria <- attributionCriteriaList){
-            matchObj += attributionCriteria._2 -> (sanitizedItem \ attributionCriteria._1).get.as[String]
-          }
-
-          matchObj.result
-        }
-      ),
-      MongoDBObject(
-        "$group" -> {
-          var sumObj = MongoDBObject.newBuilder
-          sumObj += "_id" -> null
-          getAttributionFields.foreach{
-            field =>
-              sumObj += field -> MongoDBObject(
-                "$sum" -> ("$" + field)
-              )
-          }
-
-          sumObj.result
-        }
-      )
+      Document("$match" -> matchDoc),
+      Document("$group" -> groupDoc)
     )
 
-    val sessionAttributeList = TQReporting.arrivalFactCollection.aggregate(pipeline).results
-    if(sessionAttributeList.nonEmpty){
-      if(sessionAttributeList.size > 1){
-        log.warning("Multiple attributable sessions for Google report record")
+    // TODO: Make async - remove Await.result
+    val sessionAttributeList = Await.result(TQReporting.arrivalFactCollection.aggregate(pipeline).toFuture(), 30.seconds)
+    if (sessionAttributeList.nonEmpty) {
+      if (sessionAttributeList.size > 1) {
+        logger.warn("Multiple attributable sessions for Google report record")
       }
 
       var attributedItem: JsObject = sanitizedItem
-      var sessionAttributes = sessionAttributeList.head
-      getAttributionFields.foreach {
-        field =>
-          if(field.equals("revenue")){
-            attributedItem += ("revenue" -> Json.toJson(sessionAttributes.get("revenue").asInstanceOf[Double]))
-          } else {
-            attributedItem += (field -> Json.toJson(sessionAttributes.get(field).asInstanceOf[Int]))
-          }
+      val sessionAttributes = sessionAttributeList.head
+      getAttributionFields.foreach { field =>
+        if (field.equals("revenue")) {
+          attributedItem = attributedItem + ("revenue" -> JsNumber(sessionAttributes.getDouble("revenue").doubleValue()))
+        } else {
+          attributedItem = attributedItem + (field -> JsNumber(sessionAttributes.getInteger(field).intValue()))
+        }
       }
 
       attributedItem
@@ -182,10 +182,6 @@ object ReportHelper {
     }
   }
 
-  /**
-    * The device which is exported by Google does not have the same format that we have in Lynx, therefore
-    * we need to normalize such that we can match on device
-    */
   def normalizeDevice(googleVal: String): String = googleVal match {
     case "Computers" => "c"
     case "Tablets with full browsers" => "t"
@@ -194,10 +190,6 @@ object ReportHelper {
     case _ => throw new Exception(s"Unmatched google device value: $googleVal")
   }
 
-  /**
-    * The network which is exportd by Google does not have the same format that we have in Lynx, therefore
-    * we need to normalize such that we can match on network
-    */
   def normalizeNetwork(googleVal: String): String = googleVal match {
     case "Google search" => "g"
     case "Search partners" => "s"
@@ -206,22 +198,22 @@ object ReportHelper {
   }
 
   /**
-    * List of tuples containing the fields that match a google performance report to a Lynx session.
-    */
-  def getAttributionCriteriaForReportType(reportType: ReportDefinitionReportType): List[(String,String)] = reportType match {
-    case ReportDefinitionReportType.AD_PERFORMANCE_REPORT => List(
+   * TODO: Replace string-based report types with Google Ads API v18 enum values.
+   */
+  def getAttributionCriteriaForReportType(reportType: String): List[(String, String)] = reportType match {
+    case "AD_PERFORMANCE_REPORT" => List(
       ("ad id", "utm_content"),
       ("ad group id", "adgroupid"),
       ("campaign id", "utm_campaign")
     )
-    case ReportDefinitionReportType.ADGROUP_PERFORMANCE_REPORT => List(
+    case "ADGROUP_PERFORMANCE_REPORT" => List(
       ("ad group id", "adgroupid"),
       ("campaign id", "utm_campaign")
     )
-    case ReportDefinitionReportType.CAMPAIGN_PERFORMANCE_REPORT => List(
+    case "CAMPAIGN_PERFORMANCE_REPORT" => List(
       ("campaign id", "utm_campaign")
     )
-    case ReportDefinitionReportType.GEO_PERFORMANCE_REPORT => List(
+    case "GEO_PERFORMANCE_REPORT" => List(
       ("most specific location", "g_location"),
       ("campaign id", "utm_campaign"),
       ("ad group id", "adgroupid")
@@ -229,9 +221,6 @@ object ReportHelper {
     case _ => List()
   }
 
-  /**
-    * Returns a list of fields that we want to sum and attribute to our google performance reports
-    */
   def getAttributionFields: List[String] = {
     List("conf", "revenue", "arrivals", "conu", "duration", "lp_conv_u", "u_form_complete", "bounce")
   }

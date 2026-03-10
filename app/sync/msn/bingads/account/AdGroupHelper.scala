@@ -1,6 +1,6 @@
 package sync.msn.bingads.account
 
-import com.microsoft.bingads.v11.campaignmanagement.{AdGroup, AddAdGroupsRequest, ArrayOfAdGroup, ArrayOflong, GetAdGroupsByCampaignIdRequest, GetAdGroupsByIdsRequest}
+import com.microsoft.bingads.v13.campaignmanagement.{AdGroup, AddAdGroupsRequest, ArrayOfAdGroup, ArrayOflong, GetAdGroupsByCampaignIdRequest, GetAdGroupsByIdsRequest}
 import sync.msn.bingads.BingAdsHelper
 import sync.shared.Msn._
 

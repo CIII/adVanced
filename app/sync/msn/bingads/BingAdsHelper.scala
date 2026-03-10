@@ -1,7 +1,7 @@
 package sync.msn.bingads
 
-import com.microsoft.bingads.customermanagement.ICustomerManagementService
-import com.microsoft.bingads.v11.campaignmanagement.ICampaignManagementService
+import com.microsoft.bingads.v13.customermanagement.ICustomerManagementService
+import com.microsoft.bingads.v13.campaignmanagement.ICampaignManagementService
 import com.microsoft.bingads.{AuthorizationData, PasswordAuthentication, ServiceClient}
 
 class BingAdsHelper(

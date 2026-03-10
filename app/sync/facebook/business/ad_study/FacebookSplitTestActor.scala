@@ -1,11 +1,14 @@
 package sync.facebook.business.ad_study
 
-import akka.actor.Actor
-import akka.event.Logging
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.event.Logging
 import Shared.Shared._
+import models.mongodb.MongoExtensions._
 import models.mongodb.facebook.Facebook._
 import models.mongodb.facebook.Facebook.FacebookSplitTest._
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import com.mongodb.client.model.ReplaceOptions
 import javax.inject.Inject
 import sync.shared.Facebook._
 
@@ -14,32 +17,33 @@ class FacebookSplitTestActor extends Actor {
   
   def receive = {
     case fbSplitTestPullReq: FacebookSplitTestDataPullRequest =>
-      val splitTest = fbSplitTestPullReq.fbSplitTest
+      val splitTestRaw = fbSplitTestPullReq.fbSplitTest
       val helper = fbSplitTestPullReq.fbBusinessHelper
-      
-      log.debug("Processing split test: %s - %s".format(splitTest.name, splitTest.adStudyId))
-      log.debug(splitTest.toString)
+
+      log.debug("Processing split test: %s - %s".format(splitTestRaw.name, splitTestRaw.adStudyId))
+      log.debug(splitTestRaw.toString)
       // Check if split test already exists.  if so get mongodb id so we can update it.  If it's
       // new then a new objectId would be set on creation of the object.
-      facebookSplitTestCollection.findOne(DBObject("adStudyId" -> splitTest.adStudyId)) match {
+      val splitTest = facebookSplitTestCollection.findOne(Document("adStudyId" -> splitTestRaw.adStudyId)) match {
         case Some(existingSplitObj) =>
-          splitTest._id = existingSplitObj._id
+          splitTestRaw.copy(_id = Option(existingSplitObj.getObjectId("_id")))
         case None =>
           // Nothing to do - Split Test is new and should have it's object Id populated on creation
+          splitTestRaw
       }
-      
+
       // Update or insert split test.
-      facebookSplitTestCollection.update(
-          DBObject("_id" -> splitTest._id),
-          toDBO(splitTest),
-          upsert=true
+      facebookSplitTestCollection.replaceOne(
+          Document("_id" -> splitTest._id),
+          toDocument(splitTest),
+          new ReplaceOptions().upsert(true)
       )
       
     case cacheMsg: PendingCacheMessage =>
       val cache = cacheMsg.cache.get
-      val splitTest = fromDBO(cache.changeData.asDBObject)
+      val splitTest = fromDocument(cache.changeData)
       log.info(splitTest.toString)
-      val fbBizAccount = FacebookBusinessAccount.fromDBO(facebookBusinessAccountCollection.findOne(DBObject("_id" -> splitTest.bizObjectId)).get) 
+      val fbBizAccount = FacebookBusinessAccount.fromDocument(facebookBusinessAccountCollection.findOne(Document("_id" -> splitTest.bizObjectId)).get)
       val fbAdStudyHelper = new FacebookAdStudyHelper(fbBizAccount, log)
       
       log.debug("Processing split test: %s - %s".format(splitTest.name, splitTest.adStudyId))

@@ -1,38 +1,40 @@
 package sync.facebook.business.ad_study
 
 import models.mongodb.facebook.Facebook._
+import org.bson.types.ObjectId
 import scala.concurrent.duration._
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import com.mongodb.client.model.ReplaceOptions
 import sync.facebook.business.FacebookBusinessHelper
 import scala.concurrent.Await
 import Shared.Shared._
-import akka.event.LoggingAdapter
+import org.apache.pekko.event.LoggingAdapter
 import org.joda.time.DateTime
 import play.api.libs.json.JsObject
 
 /**
  * The Facebook AdsInsights SDK does not currently support split testing.
  * Therefore we have to build the call manually.
- *  
+ *
  */
 class FacebookAdStudyHelper(
-    fbBizAccount: FacebookBusinessAccount, 
+    fbBizAccount: FacebookBusinessAccount,
     log: LoggingAdapter
 ) extends FacebookBusinessHelper(fbBizAccount, log) {
   
   /**
    * Retrieve a list of all split tests associated with this business account.
    */
+  // TODO: Replace blocking call with async Future composition
   def getSplitTests: List[FacebookSplitTest] = {
-    val response = Await.result(requestWithTimeout(fbGraphUrl.concat(fbBizAccount.accountNumber).concat("/ad_studies")).get, Duration.Inf)
+    val response = Await.result(requestWithTimeout(fbGraphUrl.concat(fbBizAccount.accountNumber).concat("/ad_studies")).get, 30.seconds)
     val data = (response.json \ "data").as[List[JsObject]]
     log.debug("Retrieved ".concat(data.length.toString).concat(" Split Tests"))
     data.map { splitTestObj =>
       val splitTest = parseSplitTestFromFacebookResponse(splitTestObj)
       val cellTuple = getSplitTestCells(splitTest)
-      splitTest.cells = cellTuple._1
-      splitTest.testType = cellTuple._2
-      splitTest
+      splitTest.copy(cells = cellTuple._1, testType = cellTuple._2)
     }
   }
   
@@ -58,8 +60,9 @@ class FacebookAdStudyHelper(
    * Retrieve each of the "cells" for an ad_study.  The cells are a different edge, and therefore require a separate call.
    * return the list of cells, and the type of the cells as a tuple
    */
+  // TODO: Replace blocking call with async Future composition
   def getSplitTestCells(splitTest: FacebookSplitTest): (List[FacebookSplitTestCell], String) = {
-    val response = Await.result(requestWithTimeout(fbGraphUrl.concat(splitTest.adStudyId.get).concat("/cells")).get, Duration.Inf)
+    val response = Await.result(requestWithTimeout(fbGraphUrl.concat(splitTest.adStudyId.get).concat("/cells")).get, 30.seconds)
     val data = (response.json \ "data").as[List[JsObject]]
     var cellType = ""
     (data.map(splitTestCellObj => {
@@ -120,15 +123,16 @@ class FacebookAdStudyHelper(
   def createSplitTest(splitTest: FacebookSplitTest) {
     log.debug("Creating split test: " + splitTest._id.toString)
     val body = createFbSplitTestRequestBody(splitTest)
+    // TODO: Replace blocking call with async Future composition
     val response = Await.result(
-        this.requestWithTimeout(fbGraphUrl.concat(fbBizAccount.accountNumber).concat("/ad_studies")).post(body), 
-        Duration.Inf
+        this.requestWithTimeout(fbGraphUrl.concat(fbBizAccount.accountNumber).concat("/ad_studies")).post(body),
+        30.seconds
     )
     
     // Update the new ad study with the ad study Id & insert the object into mongo
-    splitTest.adStudyId = Some((response.json \ "id").as[String])
-    facebookSplitTestCollection.insert(
-        FacebookSplitTest.toDBO(splitTest)
+    val updatedSplitTest = splitTest.copy(adStudyId = Some((response.json \ "id").as[String]))
+    facebookSplitTestCollection.insertOne(
+        FacebookSplitTest.toDocument(updatedSplitTest)
     )
   }
   
@@ -139,9 +143,9 @@ class FacebookAdStudyHelper(
     log.debug("Updating split test: " + splitTest._id.toString)
     val body = createFbSplitTestRequestBody(splitTest)
     this.requestWithTimeout(this.fbGraphUrl.concat(splitTest.adStudyId.get)).post(body)
-    facebookSplitTestCollection.update(
-        DBObject("_id" -> splitTest._id),
-        FacebookSplitTest.toDBO(splitTest)
+    facebookSplitTestCollection.replaceOne(
+        Document("_id" -> splitTest._id),
+        FacebookSplitTest.toDocument(splitTest)
     )
   }
   
@@ -151,8 +155,8 @@ class FacebookAdStudyHelper(
   def deleteSplitTest(splitTest: FacebookSplitTest) {
     log.debug("Deleting split test: " + splitTest._id.toString)
     this.requestWithTimeout(this.fbGraphUrl.concat(splitTest.adStudyId.get)).delete
-    facebookSplitTestCollection.remove(
-        DBObject("_id" -> splitTest._id)
+    facebookSplitTestCollection.deleteOne(
+        Document("_id" -> splitTest._id)
     )
   }
   

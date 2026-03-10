@@ -1,67 +1,49 @@
 package sync.status
 
-import Shared.Shared._
-import akka.actor.{Actor, ActorRef, Props}
-import akka.pattern.ask
-import akka.util.Timeout
-import org.joda.time._
-import org.joda.time.format._
-import play.api.Play.current
-import play.api.cache.Cache
-import play.api.libs.concurrent.Akka
-import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import play.api.libs.iteratee.{Concurrent, Enumerator, Iteratee}
+import javax.inject.{Inject, Singleton}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.Timeout
+import play.api.Logging
 import play.api.mvc._
 
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 
-case class Refresh()
-case class Connect( user: String )
-case class Connected( enumerator: Enumerator[ String ] )
+case class StatusRefresh()
+case class StatusConnect(user: String)
+case class StatusConnected(source: Source[String, _])
 
-object Status {
-  implicit val timeout = Timeout( 5 second )
-  var actors: Map[ String, ActorRef ] = Map()
+/**
+ * Manages WebSocket connections for general status updates.
+ * Migrated from Play 2.5 Iteratee/Enumerator to Pekko Streams.
+ */
+@Singleton
+class Status @Inject()(actorSystem: ActorSystem)(implicit ec: ExecutionContext) extends Logging {
+  implicit val timeout: Timeout = Timeout(5.seconds)
+  private var actors: Map[String, ActorRef] = Map()
 
-  def actor( user: String ) = actors.synchronized {
-    actors.find( _._1 == user ).map( _._2 ) match {
-      case Some(actor) => actor
-      case None => {
-        val actor = Akka.system.actorOf( Props( new StatusActor(user) ), name = s"user-$user" )
-        Akka.system.scheduler.schedule( 0.seconds, 3.second, actor, Refresh )
-        actors += ( user -> actor )
-        actor
-      }
-    }
-  }
-
-  def attach( user: String ): Future[ Either[Result, ( Iteratee[ String, _ ], Enumerator[ String ] ) ]] = {
-    ( actor( user ) ? Connect( user ) ).map {
-      case Connected( enumerator ) => Right(( Iteratee.ignore[String], enumerator ))
+  def actor(user: String): ActorRef = actors.synchronized {
+    actors.get(user) match {
+      case Some(ref) => ref
+      case None =>
+        val ref = actorSystem.actorOf(Props(new StatusActor(user)), name = s"status-user-$user")
+        actorSystem.scheduler.scheduleWithFixedDelay(0.seconds, 3.seconds, ref, StatusRefresh())
+        actors += (user -> ref)
+        ref
     }
   }
 }
 
-class StatusActor(user: String ) extends Actor {
-  val ( enumerator, channel ) = Concurrent.broadcast[String]
+class StatusActor(user: String) extends Actor with Logging {
 
-  def receive = {
-    case Connect( host ) => sender ! Connected( enumerator )
-    case Refresh => broadcast( user )
-  }
-
-  def broadcast( user: String ) {
-    val task_key = user + task_ext
-    val task_cache = Cache.get(task_key).orNull
-    val data = scala.collection.mutable.ListBuffer[(String, Any)]()
-    if(task_cache != null) {
-      for (task <- task_cache.asInstanceOf[List[TaskStructure]]) {
-        val period = new Period(task.startTime, new DateTime)
-        val hms = new PeriodFormatterBuilder minimumPrintedDigits 2 printZeroAlways() appendHours() appendSeparator ":" appendMinutes() appendSuffix ":" appendSeconds() toFormatter()
-        data += ("id" -> 1234)
-      }
-    }
-    channel.push(gson.toJson(data.toList))
+  def receive: Receive = {
+    case StatusConnect(_) =>
+      // TODO: Implement Pekko Streams source for status updates
+      sender() ! StatusConnected(Source.empty[String])
+    case StatusRefresh() =>
+      // TODO: Re-implement broadcast using RedisService (async)
+      // Original code used Play Cache API and Gson serialization
   }
 }

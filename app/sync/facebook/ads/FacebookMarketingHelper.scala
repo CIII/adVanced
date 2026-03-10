@@ -1,5 +1,6 @@
 package sync.facebook.ads
 
+// TODO: Update to facebook-java-business-sdk v20
 import com.facebook.ads.sdk.{APIContext, AdAccount}
 
 class FacebookMarketingHelper(

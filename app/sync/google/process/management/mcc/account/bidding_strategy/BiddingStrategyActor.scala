@@ -1,12 +1,12 @@
 package sync.google.process.management.mcc.account.bidding_strategy
 
 import Shared.Shared._
-import akka.actor.Actor
-import akka.event.Logging
-import com.mongodb.casbah.Imports._
-import com.mongodb.util.JSON
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.event.Logging
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import com.mongodb.client.model.UpdateOptions
 import models.mongodb.google.Google._
-import sync.google.adwords.account.CustomerHelper
 import sync.shared.Google.{GoogleBiddingStrategyDataPullRequest, _}
 
 class BiddingStrategyActor extends Actor {
@@ -15,26 +15,23 @@ class BiddingStrategyActor extends Actor {
   def receive = {
     case biddingStrategyDataPullRequest: GoogleBiddingStrategyDataPullRequest =>
       try {
+        val strategyDoc = biddingStrategyDataPullRequest.sharedBiddingStrategyObject.sharedBiddingStrategyDoc
         log.info("Processing Incoming Data for Shared Bidding Strategy (%s)".format(
-          biddingStrategyDataPullRequest.sharedBiddingStrategyObject.sharedBiddingStrategy.getId
+          strategyDoc.getString("id")
         ))
 
-        googleBiddingStrategyCollection.update(
-          DBObject(
+        googleBiddingStrategyCollection.updateOne(
+          Document(
             "mccObjId" -> biddingStrategyDataPullRequest.sharedBiddingStrategyObject.customerObject.mccObject.mccObjId,
             "customerObjId" -> biddingStrategyDataPullRequest.sharedBiddingStrategyObject.customerObject.customerObjId,
-            "apiId" -> biddingStrategyDataPullRequest.sharedBiddingStrategyObject.sharedBiddingStrategy.getId
+            "apiId" -> strategyDoc.getString("id")
           ),
-          DBObject("$set" -> DBObject("biddingStrategy" -> DBObject(
-            "classPath" -> biddingStrategyDataPullRequest.sharedBiddingStrategyObject.sharedBiddingStrategy.getClass.getCanonicalName,
-            "object" -> JSON.parse(gson.toJson(biddingStrategyDataPullRequest.sharedBiddingStrategyObject.sharedBiddingStrategy)).asInstanceOf[DBObject]
-          ))),
-          true
+          Document("$set" -> Document("biddingStrategy" -> strategyDoc)),
+          new UpdateOptions().upsert(true)
         )
       } catch {
         case e: Exception =>
-          log.info("Error Retrieving Data for Google Shared Bidding Strategy (%s) - %s".format(
-            biddingStrategyDataPullRequest.sharedBiddingStrategyObject.sharedBiddingStrategy.getName,
+          log.info("Error Retrieving Data for Google Shared Bidding Strategy - %s".format(
             e.getMessage
           ))
       } finally {

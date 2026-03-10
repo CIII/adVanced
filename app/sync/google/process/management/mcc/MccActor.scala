@@ -1,12 +1,14 @@
 package sync.google.process.management.mcc
 
 import Shared.Shared._
-import akka.actor.{Actor, Props}
-import akka.event.Logging
-import com.mongodb.casbah.Imports.{ObjectId, _}
+import org.apache.pekko.actor.{Actor, Props}
+import org.apache.pekko.event.Logging
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import org.bson.types.ObjectId
+import com.mongodb.client.model.ReplaceOptions
 import models.mongodb.google.Google._
-import sync.google.adwords.AdWordsHelper
-import sync.google.adwords.account._
+import models.mongodb.MongoExtensions._
 import sync.google.process.management.mcc.account.CustomerActor
 import sync.shared.Google._
 
@@ -17,7 +19,7 @@ class MccActor extends Actor {
     case cache_msg: PendingCacheMessage =>
       val cache: PendingCacheStructure = cache_msg.cache.get
       try {
-        val mcc_data = dboToMcc(cache.changeData.asDBObject)
+        val mcc_data = documentToMcc(cache.changeData)
         log.info("Processing MCC %s -> %s -> %s -> %s".format(
           cache.changeCategory,
           cache.changeType,
@@ -25,44 +27,17 @@ class MccActor extends Actor {
           cache.id
         ))
 
-        val mccObj = googleMccCollection.update(
-          DBObject("oAuthRefreshToken" -> mcc_data.oAuthRefreshToken),
-          mccToDBObject(mcc_data),
-          true
+        val mccObj = googleMccCollection.replaceOne(
+          Document("oAuthRefreshToken" -> mcc_data.oAuthRefreshToken),
+          mccToDocument(mcc_data),
+          new ReplaceOptions().upsert(true)
         )
 
-        val adWordsHelper = new AdWordsHelper(
-          clientId = mcc_data.oAuthClientId,
-          clientSecret = mcc_data.oAuthClientSecret,
-          refreshToken = mcc_data.oAuthRefreshToken,
-          developerToken = mcc_data.developerToken,
-          customerId = None
-        )
+        // TODO: Not yet migrated to Google Ads API v18
+        // AdWordsHelper / CustomerHelper are not available until Google Ads API v18 migration is complete.
+        log.info("Not yet migrated to Google Ads API v18 - MCC customer traversal is stubbed out")
 
-        val customerHelper = new CustomerHelper(adWordsHelper, log)
-        customerHelper.getCustomers.foreach { customer =>
-          try {
-            var offset = 0
-            var totalNumEntries = 0
-            while (offset <= totalNumEntries) {
-              val managedCustomerPage = customerHelper.getManagedCustomers(customer, managedCustomerFields, offset)
-              totalNumEntries = managedCustomerPage.getTotalNumEntries
-              managedCustomerPage.getEntries.foreach { managedCustomer =>
-                googleManagementActorSystem.actorOf(Props(new CustomerActor)) ! GoogleCustomerDataPullRequest(
-                  Some(adWordsHelper),
-                  CustomerObject(MccObject(mccObj.getUpsertedId.asInstanceOf[ObjectId], mcc_data), None, managedCustomer, Some(customer)),
-                  recursivePull = true,
-                  pushToExternal = false
-                )
-              }
-              offset += adWordsHelper.PAGE_SIZE
-            }
-          } catch {
-            case e: Exception =>
-              e.printStackTrace()
-          }
-        }
-        complete_subprocess(taskKey(Left(cache_msg.request.get)), cache)
+        complete_subprocess(taskKey(cache_msg.requestUsername.getOrElse("")), cache)
       } catch {
         case e: Exception => log.info("Error Retrieving Data for MCC (%s) - %s".format(cache.id, e.getMessage))
       } finally {
@@ -70,48 +45,20 @@ class MccActor extends Actor {
       }
     case _ =>
       try {
-        googleMccCollection.find().toSeq.foreach {
+        googleMccCollection.find().toList.foreach {
           mcc_obj =>
-            val mcc = dboToMcc(mcc_obj.asDBObject)
-            val adWordsHelper = new AdWordsHelper(
-              clientId = mcc.oAuthClientId,
-              clientSecret = mcc.oAuthClientSecret,
-              refreshToken = mcc.oAuthRefreshToken,
-              developerToken = mcc.developerToken,
-              customerId = None
-            )
+            val mcc = documentToMcc(mcc_obj)
 
-            val customerHelper = new CustomerHelper(adWordsHelper, log)
-            customerHelper.getCustomers.foreach { customer =>
-              try {
-                var offset = 0
-                var totalNumEntries = 0
-                while (offset <= totalNumEntries) {
-                  val managedCustomerPage = customerHelper.getManagedCustomers(customer, managedCustomerFields, offset)
-                  totalNumEntries = managedCustomerPage.getTotalNumEntries
-                  managedCustomerPage.getEntries.foreach { managedCustomer =>
-                    googleManagementActorSystem.actorOf(Props(new CustomerActor)) ! GoogleCustomerDataPullRequest(
-                      Some(adWordsHelper),
-                      CustomerObject(MccObject(mcc._id.get, mcc), None, managedCustomer, Some(customer)),
-                      recursivePull = true,
-                      pushToExternal = true
-                    )
-                  }
-                  offset += adWordsHelper.PAGE_SIZE
-                }
-              } catch {
-                case e: Exception =>
-                  log.info(s"CLARENCE DEBUG -- MCC EXCEPTION -> ${e.toString}")
-                  e.printStackTrace()
-              }
-            }
+            // TODO: Not yet migrated to Google Ads API v18
+            // AdWordsHelper / CustomerHelper are not available until Google Ads API v18 migration is complete.
+            log.info("Not yet migrated to Google Ads API v18 - incremental MCC pull is stubbed out for mcc: %s".format(mcc.name))
         }
       } catch {
         case e: Exception =>
           log.info("Error Retrieving Incremental Data for MCC - %s".format(
             e.toString
           ))
-          e.printStackTrace()
+          log.error(s"Error retrieving incremental MCC data: ${e.getMessage}")
       } finally {
         context.stop(self)
       }

@@ -1,17 +1,20 @@
 package sync.facebook.process.api_account.campaign.ad_set.ad
 
 import Shared.Shared._
-import akka.actor.Actor
-import akka.event.Logging
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.event.Logging
+// TODO: Update to facebook-java-business-sdk v20
 import com.facebook.ads.sdk.Ad
-import com.mongodb.casbah.Imports._
-import com.mongodb.util.JSON
-import helpers.facebook.api_account.campaign.ad_set.AdSetControllerHelper.dboToAdSetForm
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import com.mongodb.client.model.{FindOneAndUpdateOptions, ReturnDocument}
+import helpers.facebook.api_account.campaign.ad_set.AdSetControllerHelper.documentToAdSetForm
 import models.mongodb.facebook.Facebook._
 import org.bson.types.ObjectId
 import sync.facebook.ads.FacebookMarketingHelper
 import sync.facebook.ads.user._
 import sync.shared.Facebook._
+import models.mongodb.MongoExtensions._
 
 import scala.collection.mutable.ListBuffer
 
@@ -33,25 +36,21 @@ class AdActor extends Actor {
               adObject.ad.getId
             ))
 
-            val qry = DBObject(
+            val qry = Document(
               "apiAccountObjId" -> adObject.adSetObject.campaignObject.apiAccountObject.apiAccountObjId,
               "campaignObjId" -> adObject.adSetObject.campaignObject.apiAccountObject.apiAccountObjId,
               "adSetObjId" -> adObject.adSetObject.adSetObjId,
               "apiId" -> adObject.ad.getId
             )
 
-            val newData = DBObject(
+            val newData = Document(
               "classPath" -> adObject.ad.getClass.getCanonicalName,
-              "object" -> JSON.parse(gson.toJson(adObject.ad)).asInstanceOf[DBObject]
+              "object" -> Document(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(adObject.ad))
             )
-            facebookAdCollection.findAndModify(
+            facebookAdCollection.findOneAndUpdateSync(
               qry,
-              null,
-              null,
-              false,
-              DBObject("$set" -> DBObject("ad" -> newData)),
-              true,
-              true
+              Document("$set" -> Document("ad" -> newData)),
+              new FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
             )
           } catch {
             case e: Exception =>
@@ -59,7 +58,7 @@ class AdActor extends Actor {
                 adObject.ad.getFieldName,
                 e.getMessage
               ))
-              e.printStackTrace()
+              log.error(s"Error processing Facebook ad: ${e.getMessage}")
           }
         }
       } finally {
@@ -67,7 +66,7 @@ class AdActor extends Actor {
       }
     case cache: PendingCacheStructure =>
       try {
-        val adset_change = dboToAdSetForm(cache.changeData.asDBObject)
+        val adset_change = documentToAdSetForm(cache.changeData)
         log.info("Processing %s -> %s -> %s -> %s".format(
           cache.changeCategory,
           cache.changeType,
@@ -75,8 +74,8 @@ class AdActor extends Actor {
           cache.id
         ))
 
-        val api_account_data = dboToApiAccount(facebookApiAccountCollection.findOne(
-          DBObject("_id" -> new ObjectId(adset_change.parent.apiAccountObjId.get))
+        val api_account_data = documentToApiAccount(facebookApiAccountCollection.findOne(
+          Document("_id" -> new ObjectId(adset_change.parent.apiAccountObjId.get))
         ).get)
 
         val marketingHelper = new FacebookMarketingHelper(

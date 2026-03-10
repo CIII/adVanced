@@ -1,15 +1,16 @@
 package sync.facebook.ads.user
 
-import akka.event.LoggingAdapter
+import org.apache.pekko.event.LoggingAdapter
+// TODO: Update to facebook-java-business-sdk v20
 import com.facebook.ads.sdk.{AdAccount, AdSet, AdsInsights, Campaign}
 import sync.facebook.ads.FacebookMarketingHelper
 
-import scala.collection.JavaConversions.seqAsJavaList
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 
 class AdSetHelper(facebookMarketingHelper: FacebookMarketingHelper, log: LoggingAdapter) {
   def getAdSets: List[AdSet] = {
-    var result: mutable.MutableList[AdSet] = mutable.MutableList()
+    var result: mutable.ListBuffer[AdSet] = mutable.ListBuffer()
     var adSets = facebookMarketingHelper.adAccount.getAdSets.requestAllFields().execute()
     while(!adSets.isEmpty) {
       val iter = adSets.iterator()
@@ -22,7 +23,7 @@ class AdSetHelper(facebookMarketingHelper: FacebookMarketingHelper, log: Logging
   }
 
   def getAdSetAdsInsights(adSet: AdSet) = {
-    var result: mutable.MutableList[AdsInsights] = mutable.MutableList()
+    var result: mutable.ListBuffer[AdsInsights] = mutable.ListBuffer()
     var adsInsights = adSet.getInsights.execute()
     while(!adsInsights.isEmpty) {
       val iter = adsInsights.iterator()
@@ -35,7 +36,7 @@ class AdSetHelper(facebookMarketingHelper: FacebookMarketingHelper, log: Logging
   }
 
   def getAdSetsByCampaignId(campaignId: Long): List[AdSet] = {
-    var result: mutable.MutableList[AdSet] = mutable.MutableList()
+    var result: mutable.ListBuffer[AdSet] = mutable.ListBuffer()
     var adSets = Campaign.fetchById(campaignId, facebookMarketingHelper.context).getAdSets.execute()
     while(!adSets.isEmpty) {
       val iter = adSets.iterator()
@@ -48,8 +49,8 @@ class AdSetHelper(facebookMarketingHelper: FacebookMarketingHelper, log: Logging
   }
 
   def getAdSetsByIds(adSetIds: List[String]): List[AdSet] = {
-    var result: mutable.MutableList[AdSet] = mutable.MutableList()
-    var adSets = AdSet.fetchByIds(adSetIds, seqAsJavaList(AdAccount.APIRequestGetAdSets.FIELDS.toSeq), facebookMarketingHelper.context)
+    var result: mutable.ListBuffer[AdSet] = mutable.ListBuffer()
+    var adSets = AdSet.fetchByIds(adSetIds.asJava, AdAccount.APIRequestGetAdSets.FIELDS.toSeq.asJava, facebookMarketingHelper.context)
     while(!adSets.isEmpty) {
       val iter = adSets.iterator()
       while (iter.hasNext) {

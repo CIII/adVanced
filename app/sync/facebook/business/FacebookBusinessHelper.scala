@@ -2,33 +2,32 @@ package sync.facebook.business
 
 import java.util.concurrent.TimeUnit
 
+// TODO: Update to facebook-java-business-sdk v20
 import com.facebook.ads.sdk.Business
 import com.facebook.ads.sdk.APIContext
+import models.mongodb.facebook.Facebook
 import models.mongodb.facebook.Facebook._
-import play.api.Play
-import play.api.Play._
-import play.api.libs.ws.{WS, WSRequest, WSResponse}
+import play.api.libs.ws.{WSRequest, WSResponse}
 
 import scala.concurrent.duration._
 import Shared.Shared._
-import akka.event.LoggingAdapter
+import org.apache.pekko.event.LoggingAdapter
 
 class FacebookBusinessHelper(
   fbBizAccount: FacebookBusinessAccount,
   log: LoggingAdapter
 ) {
-  val fbGraphUrl = Play.current.configuration.getString("facebook.graph.baseUrl").get
-  val requestTimeout = Duration.create(
-    Play.current.configuration.getString("facebook.graph.requestTimeout").get.toDouble,
+  val fbGraphUrl: String = Facebook.configuration.get[String]("facebook.graph.baseUrl")
+  val requestTimeout: scala.concurrent.duration.Duration = Duration.create(
+    Facebook.configuration.get[String]("facebook.graph.requestTimeout").toDouble,
     TimeUnit.SECONDS
   )
-  
-  
+
   def requestWithTimeout(url: String): WSRequest = {
     log.debug("Creating request: " + url)
-    WS.url(url)
-      .withQueryString("access_token" -> fbBizAccount.accessToken)
+    Facebook.ws.url(url)
+      .addQueryStringParameters("access_token" -> fbBizAccount.accessToken)
       .withRequestTimeout(requestTimeout)
-      .withHeaders("Content-Type" -> "application/x-www-form-urlencoded")
+      .addHttpHeaders("Content-Type" -> "application/x-www-form-urlencoded")
   }
 }
