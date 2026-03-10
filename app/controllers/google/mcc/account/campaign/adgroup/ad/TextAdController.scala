@@ -5,12 +5,13 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.google.api.ads.adwords.axis.v201609.cm.{AdGroupAd, TextAd}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.google.mcc.account.campaign.adgroup.ad.TextAdControllerHelper
 import models.mongodb._
+import models.mongodb.MongoExtensions._
 import models.mongodb.google.Google._
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import security.HandlerKeys
 import util.charts._
@@ -19,17 +20,17 @@ import util.charts.client.ChartColumn.ColumnType._
 import util.charts.client._
 import scala.collection.immutable.List
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import util.charts.client.ActionColumn
 import util.charts.client.ChartColumn
 
 class TextAdController @Inject()(
-  val messagesApi: MessagesApi, 
-  deadbolt: DeadboltActions, 
-  handlers: HandlerCache, 
+  val controllerComponents: ControllerComponents,
+  deadbolt: DeadboltActions,
+  handlers: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
 
   import TextAdControllerHelper._
 
@@ -50,13 +51,14 @@ class TextAdController @Inject()(
           "tsecs"
         ),
         "ad",
-        googleAdCollection,
+        googleAdCollection.namespace.getCollectionName,
         Some("adType" -> "TextAd")
       )))
   }
 
   def textAds = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[AdGroupAd] with Document-based access
       Future(Ok(views.html.google.mcc.account.campaign.adgroup.ad.text.text_ads(
         new ClientChart(
           List(
@@ -65,13 +67,14 @@ class TextAdController @Inject()(
             new ChartColumn("headline", "", "Headline", string, dimension),
             new ActionColumn((rowValues: List[Any]) => "/google/mcc/account/campaign/adgroup/ad/text/%s/".format(rowValues(0).toString))
           ),
-          googleAdCollection.find(DBObject("adType" -> "TextAd")).toList.map(
+          googleAdCollection.find(Document("adType" -> "TextAd")).toList.map(
               textAdObj => {
-                val ad = dboToGoogleEntity[AdGroupAd](textAdObj, "ad", None)
+                val adDoc = Option(textAdObj.toBsonDocument.get("ad")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
+                val innerAdDoc = adDoc.flatMap(d => Option(d.toBsonDocument.get("ad")).map(v => Document(v.asDocument())))
                 TextAdChartItem(
-                  apiId = ad.getAd.getId,
-                  url = ad.getAd.getUrl,
-                  headline = ad.getAd.asInstanceOf[TextAd].getHeadline
+                  apiId = innerAdDoc.flatMap(d => Option(d.getLong("id")).map(_.toLong)).getOrElse(0L),
+                  url = innerAdDoc.flatMap(d => Option(d.getString("url"))).getOrElse(""),
+                  headline = innerAdDoc.flatMap(d => Option(d.getString("headline"))).getOrElse("")
                 )
               }
           )
@@ -94,30 +97,32 @@ class TextAdController @Inject()(
 
   def editTextAd(api_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      googleAdCollection.findOne(DBObject("apiId" -> api_id)) match {
+      googleAdCollection.findOne(Document("apiId" -> api_id)) match {
         case Some(text_ad_obj) =>
-          val text_ad = dboToGoogleEntity[AdGroupAd](text_ad_obj, "ad", None)
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[AdGroupAd] with Document-based access
+          val adDoc = Option(text_ad_obj.toBsonDocument.get("ad")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
+          val innerAdDoc = adDoc.flatMap(d => Option(d.toBsonDocument.get("ad")).map(v => Document(v.asDocument())))
           Future(Ok(views.html.google.mcc.account.campaign.adgroup.ad.text.edit_text_ad(
             api_id,
             textAdForm.fill(
               TextAdForm(
                 controllers.Google.AdGroupAdParent(
-                  mccObjId = text_ad_obj.getAsOrElse[Option[String]]("mccObjId", None),
-                  customerApiId = text_ad_obj.getAsOrElse[Option[Long]]("customerApiId", None),
-                  campaignApiId = text_ad_obj.getAsOrElse[Option[Long]]("campaignApiId", None),
-                  adGroupApiId = text_ad_obj.getAsOrElse[Option[Long]]("adGroupApiId", None)
+                  mccObjId = Option(text_ad_obj.getString("mccObjId")),
+                  customerApiId = Option(text_ad_obj.getLong("customerApiId")).map(_.toLong),
+                  campaignApiId = Option(text_ad_obj.getLong("campaignApiId")).map(_.toLong),
+                  adGroupApiId = Option(text_ad_obj.getLong("adGroupApiId")).map(_.toLong)
                 ),
-                apiId = Some(text_ad.getAd.getId),
-                url = Some(text_ad.getAd.getUrl),
-                displayUrl = Some(text_ad.getAd.getDisplayUrl),
-                devicePreference = Some(text_ad.getAd.getDevicePreference),
-                headline = Some(text_ad.getAd.asInstanceOf[com.google.api.ads.adwords.axis.v201609.cm.TextAd].getHeadline),
-                description1 = Some(text_ad.getAd.asInstanceOf[com.google.api.ads.adwords.axis.v201609.cm.TextAd].getDescription1),
-                description2 = Some(text_ad.getAd.asInstanceOf[com.google.api.ads.adwords.axis.v201609.cm.TextAd].getDescription2),
-                status = Some(text_ad.getStatus.toString),
-                approvalStatus = Some(text_ad.getApprovalStatus.toString),
-                disapprovalReasons = Some(text_ad.getDisapprovalReasons.toList),
-                trademarkDisapproved = Some(text_ad.getTrademarkDisapproved)
+                apiId = innerAdDoc.flatMap(d => Option(d.getLong("id")).map(_.toLong)),
+                url = innerAdDoc.flatMap(d => Option(d.getString("url"))),
+                displayUrl = innerAdDoc.flatMap(d => Option(d.getString("displayUrl"))),
+                devicePreference = innerAdDoc.flatMap(d => Option(d.getLong("devicePreference")).map(_.toLong)),
+                headline = innerAdDoc.flatMap(d => Option(d.getString("headline"))),
+                description1 = innerAdDoc.flatMap(d => Option(d.getString("description1"))),
+                description2 = innerAdDoc.flatMap(d => Option(d.getString("description2"))),
+                status = adDoc.flatMap(d => Option(d.getString("status"))),
+                approvalStatus = adDoc.flatMap(d => Option(d.getString("approvalStatus"))),
+                disapprovalReasons = adDoc.flatMap(d => Option(d.getString("disapprovalReasons")).map(r => r.split(",").toList)),
+                trademarkDisapproved = adDoc.flatMap(d => Option(d.getBoolean("trademarkDisapproved")).map(_.booleanValue()))
               )
             )
           )))
@@ -146,10 +151,10 @@ class TextAdController @Inject()(
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.TEXT_AD,
-              changeData = textAdFormToDbo(text_ad)
+              changeData = textAdFormToDocument(text_ad)
             )
           )
-          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.textAds()))
+          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.textAds))
         }
       )
   }
@@ -175,7 +180,7 @@ class TextAdController @Inject()(
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.GOOGLE,
                     changeCategory = ChangeCategory.TEXT_AD,
-                    changeData = textAdFormToDbo(text_ad)
+                    changeData = textAdFormToDocument(text_ad)
                   )
                 )
               }
@@ -189,7 +194,7 @@ class TextAdController @Inject()(
           error_list.toList
         )))
       } else {
-        Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.textAds()))
+        Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.textAds))
       }
     }
   }
@@ -207,10 +212,10 @@ class TextAdController @Inject()(
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.TEXT_AD,
-              changeData = textAdFormToDbo(text_ad)
+              changeData = textAdFormToDocument(text_ad)
             )
           )
-          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.textAds()))
+          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.textAds))
         }
       )
   }
@@ -225,11 +230,9 @@ class TextAdController @Inject()(
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.GOOGLE,
           changeCategory = ChangeCategory.TEXT_AD,
-          changeData = DBObject("apiId" -> api_id)
+          changeData = Document("apiId" -> api_id)
         )
       )
-      Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.textAds()))
+      Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.TextAdController.textAds))
   }
 }
-
-

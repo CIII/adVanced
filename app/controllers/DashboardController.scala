@@ -8,18 +8,18 @@ import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
 import helpers.DashboardControllerHelper._
 import models.mongodb.{SessionSettings, UserAccount}
 import org.joda.time.DateTime
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 class DashboardController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handler: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
   
   def dashboard = deadbolt.SubjectPresent()() {
       // Route depending on the user.  If they are an advertiser, send them 

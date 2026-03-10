@@ -4,40 +4,42 @@ import javax.inject.Inject
 
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import com.mongodb.client.model.ReplaceOptions
 import helpers.GoogleAuthenticationHelper
 import helpers.LoginControllerHelper._
 import models.mongodb.UserAccount
 import org.mindrot.jbcrypt.BCrypt
-import play.api.Logger
+import play.api.Logging
 import play.api.data.Forms._
 import play.api.data._
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import util._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 class ApplicationController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handler: HandlerCache,
   actionBuilder: ActionBuilders,
   googleAuthHelper: GoogleAuthenticationHelper
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport with Logging {
 
   
   def login = Action.async {
     implicit request =>
-      request.session.get(Security.username) match {
-        case Some(_) => Future(Redirect(routes.DashboardController.dashboard()))
+      request.session.get("username") match {
+        case Some(_) => Future(Redirect(routes.DashboardController.dashboard))
         case None => Future(Ok(views.html.login(loginForm)))
       }
   }
 
   def logout = Action.async {
-    Future(Redirect(routes.ApplicationController.login()).withNewSession.flashing(
+    Future(Redirect(routes.ApplicationController.login).withNewSession.flashing(
       "success" -> "You are now logged out."
     ))
   }
@@ -73,8 +75,8 @@ class ApplicationController @Inject()(
           } else {
             AuthUtil.authenticate(passwordChange.username, passwordChange.currentPassword) match {
               case Some(userAcct) =>
-                userAcct.password = BCrypt.hashpw(passwordChange.newPassword, BCrypt.gensalt)
-                UserAccount.userAccountCollection.update(DBObject("userName" -> userAcct.userName), UserAccount.userAccountToDbo(userAcct));
+                val updatedAcct = userAcct.copy(password = BCrypt.hashpw(passwordChange.newPassword, BCrypt.gensalt))
+                UserAccount.userAccountCollection.replaceOne(Document("userName" -> updatedAcct.userName), UserAccount.userAccountToDocument(updatedAcct));
             }
 
             Future(Redirect(controllers.routes.UserProfileController.user_profile(passwordChange.username)))
@@ -89,13 +91,13 @@ class ApplicationController @Inject()(
           formWithErrors => Future(BadRequest(views.html.login(formWithErrors))),
           user => {
             if(UserAccount.isAdvertiser(user.get)){
-              Logger.info("Logged in advertiser:%d for user account %s".format(user.get.advertiserIds.head, user.get.userName))
+              logger.info("Logged in advertiser:%d for user account %s".format(user.get.advertiserIds.head, user.get.userName))
               Future(Redirect(controllers.advertisers.routes.AdvertiserController.advertiser(user.get.advertiserIds.head))
-                .withSession(request.session + (Security.username -> user.get.userName)))
+                .withSession(request.session + ("username" -> user.get.userName)))
             } else {
-                Logger.info("Successfully logged in user: %s".format(user.get.userName))
-                Future(Redirect(routes.DashboardController.dashboard())
-                  .withSession(request.session + (Security.username -> user.get.userName)))
+                logger.info("Successfully logged in user: %s".format(user.get.userName))
+                Future(Redirect(routes.DashboardController.dashboard)
+                  .withSession(request.session + ("username" -> user.get.userName)))
             }
           }
       )

@@ -5,16 +5,18 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.facebook.reporting.ReportingControllerHelper._
+import models.mongodb.MongoExtensions._
 import models.mongodb.facebook.Facebook._
-import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.mvc.{Action, Controller}
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.i18n.I18nSupport
+import play.api.mvc._
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 
-class ReportingController @Inject()(val messagesApi: MessagesApi, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders) extends Controller with I18nSupport {
+class ReportingController @Inject()(val controllerComponents: ControllerComponents, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
 
   def json(
     reportType: String,
@@ -27,11 +29,8 @@ class ReportingController @Inject()(val messagesApi: MessagesApi, deadbolt: Dead
   ) = Action.async {
     implicit request =>
       Future(Ok(
-        com.mongodb.util.JSON.serialize(
-          MongoDBList(
-            facebookReportCollection("unimplemented").toList: _*
-          )
-        )
+        facebookReportCollection("unimplemented").find().toList
+          .map(_.toJson()).mkString("[", ",", "]")
       ))
   }
 

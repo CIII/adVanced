@@ -5,29 +5,26 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.google.api.ads.adwords.axis.v201609.cm.Budget
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.google.mcc.account.BudgetControllerHelper._
 import models.mongodb._
+import models.mongodb.MongoExtensions._
 import models.mongodb.google.Google._
-import play.api.cache.CacheApi
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import security.HandlerKeys
 
 import scala.collection.immutable.List
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 class BudgetController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
-  actionBuilder: ActionBuilders,
-  cache: CacheApi
-) extends Controller with I18nSupport {
+  actionBuilder: ActionBuilders
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
   def json = Action.async {
     implicit request =>
       Future(Ok(controllers.json(
@@ -40,22 +37,22 @@ class BudgetController @Inject()(
           "tsecs"
         ),
         "budget",
-        googleBudgetCollection
+        googleBudgetCollection.namespace.getCollectionName
       )))
   }
 
   def budgets(page: Int, pageSize: Int, orderBy: Int, filter: String) = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - documentToGoogleEntity[Budget] replaced with Document-based access
+      val budgetDocs = googleBudgetCollection.find().skip(page * pageSize).limit(pageSize).toList
       Future(Ok(views.html.google.mcc.account.budget.budgets(
-        googleBudgetCollection.find().skip(page * pageSize).limit(pageSize).toList.map(dboToGoogleEntity[Budget](_, "budget", None)),
+        budgetDocs,
         page,
         pageSize,
         orderBy,
         filter,
-        googleBudgetCollection.count(),
-        cache.get(pendingCacheKey(Left(request)))
-          .getOrElse(List())
-          .asInstanceOf[List[PendingCacheStructure]]
+        googleBudgetCollection.countSync().toInt,
+        pendingCache(Left(request))
           .filter(x => x.trafficSource == TrafficSource.GOOGLE && x.changeCategory == ChangeCategory.BUDGET)
       )))
   }
@@ -70,19 +67,20 @@ class BudgetController @Inject()(
 
   def editBudget(api_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      googleBudgetCollection.findOne(DBObject("apiId" -> api_id)) match {
+      googleBudgetCollection.findOne(Document("apiId" -> api_id)) match {
         case Some(budgetObj) =>
-          def budget = dboToGoogleEntity[Budget](budgetObj, "budget", None)
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Budget] with Document-based access
+          val budgetDoc = Option(budgetObj.toBsonDocument.get("budget")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
           Future(Ok(views.html.google.mcc.account.budget.edit_budget(
             api_id,
             budgetForm.fill(
               BudgetForm(
-                apiId = Some(budget.getBudgetId),
-                name = budget.getName,
-                amount = Some(budget.getAmount.getMicroAmount),
-                deliveryMethod = Some(budget.getDeliveryMethod.toString),
-                isExplicitlyShared = Some(budget.getIsExplicitlyShared),
-                status = Some(budget.getStatus.toString)
+                apiId = budgetDoc.flatMap(d => Option(d.getLong("budgetId"))).map(_.toLong),
+                name = budgetDoc.map(_.getString("name")).getOrElse(""),
+                amount = budgetDoc.flatMap(d => Option(d.toBsonDocument.get("amount")).map(v => Document(v.asDocument())).flatMap(a => Option(a.getLong("microAmount")).map(_.toLong))),
+                deliveryMethod = budgetDoc.map(d => Option(d.getString("deliveryMethod")).getOrElse("STANDARD")),
+                isExplicitlyShared = budgetDoc.flatMap(d => Option(d.getBoolean("isExplicitlyShared")).map(_.booleanValue())),
+                status = budgetDoc.map(d => Option(d.getString("status")).getOrElse("ENABLED"))
               )
             )
           )))
@@ -93,7 +91,6 @@ class BudgetController @Inject()(
 
   def createBudget = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      val current_cache = Await.result(Shared.Shared.redisClient.lrange[PendingCacheStructure](pendingCacheKey(Left(request)), 0, -1), 5 seconds).toList
       budgetForm.bindFromRequest.fold(
         formWithErrors => {
           Future(BadRequest(
@@ -104,15 +101,16 @@ class BudgetController @Inject()(
           ))
         },
         budget => {
-          Shared.Shared.redisClient.lpush(
-            pendingCacheKey(Left(request)),
-            (current_cache :+ PendingCacheStructure(
-              id = current_cache.length + 1,
+          // TODO: Migrate to RedisService injection - redisClient.lpush removed
+          setPendingCache(
+            Left(request),
+            pendingCache(Left(request)) :+ PendingCacheStructure(
+              id = pendingCache(Left(request)).length + 1,
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.BUDGET,
-              changeData = budgetFormToDbo(budget)
-            )): _*
+              changeData = budgetFormToDocument(budget)
+            )
           )
           Future(Redirect(controllers.google.mcc.account.routes.BudgetController.budgets()))
         }
@@ -124,7 +122,8 @@ class BudgetController @Inject()(
       var error_list = new ListBuffer[String]()
       request.body.file("bulk").foreach {
         bulk => {
-          val field_names = Utilities.getCaseClassParameter[Budget]
+          // TODO: Migrate to Google Ads API v18 - replaced Utilities.getCaseClassParameter[Budget] with BudgetForm
+          val field_names = Utilities.getCaseClassParameter[BudgetForm]
           val budget_data_list = Utilities.bulkImport(bulk, field_names)
           for (((budget_data, action), index) <- budget_data_list.zipWithIndex) {
             budgetForm.bind(budget_data.map(kv => (kv._1, kv._2)).toMap).fold(
@@ -139,7 +138,7 @@ class BudgetController @Inject()(
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.GOOGLE,
                     changeCategory = ChangeCategory.BUDGET,
-                    changeData = budgetFormToDbo(budget)
+                    changeData = budgetFormToDocument(budget)
                   )
                 )
               }
@@ -178,7 +177,7 @@ class BudgetController @Inject()(
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.BUDGET,
-              changeData = budgetFormToDbo(budget)
+              changeData = budgetFormToDocument(budget)
             )
           )
           Future(Redirect(controllers.google.mcc.account.routes.BudgetController.budgets()))
@@ -196,20 +195,21 @@ class BudgetController @Inject()(
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.GOOGLE,
           changeCategory = ChangeCategory.BUDGET,
-          changeData = DBObject("apiId" -> api_id)
+          changeData = Document("apiId" -> api_id)
         )
       )
       Future(Redirect(controllers.google.mcc.account.routes.BudgetController.budgets()))
   }
-  
+
   def amount(budget_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       request.getQueryString("dollarAmt") match {
-        case Some(amtStr) => 
+        case Some(amtStr) =>
           val dollarAmt = amtStr.toDouble
-          googleBudgetCollection.findOne(DBObject("budget.object.budgetId" -> budget_id)) match {
+          googleBudgetCollection.findOne(Document("budget.object.budgetId" -> budget_id)) match {
             case Some(budgetObj) =>
-              val budget = dboToGoogleEntity[Budget](budgetObj, "budget", None)
+              // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Budget] with Document-based access
+              val budgetDoc = Option(budgetObj.toBsonDocument.get("budget")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
               setPendingCache(
                 Left(request),
                 pendingCache(Left(request)) :+ PendingCacheStructure(
@@ -217,21 +217,21 @@ class BudgetController @Inject()(
                   changeType = ChangeType.UPDATE,
                   trafficSource = TrafficSource.GOOGLE,
                   changeCategory = ChangeCategory.BUDGET,
-                  changeData = budgetFormToDbo(
+                  changeData = budgetFormToDocument(
                     BudgetForm(
                       apiId = Some(budget_id),
-                      name = budget.getName,
+                      name = budgetDoc.map(_.getString("name")).getOrElse(""),
                       amount = Some(dollarsToMicro(dollarAmt)),
-                      deliveryMethod = Some(budget.getDeliveryMethod.toString),
-                      isExplicitlyShared = Some(budget.getIsExplicitlyShared),
-                      status = Some(budget.getStatus.toString)
+                      deliveryMethod = budgetDoc.map(d => Option(d.getString("deliveryMethod")).getOrElse("STANDARD")),
+                      isExplicitlyShared = budgetDoc.flatMap(d => Option(d.getBoolean("isExplicitlyShared")).map(_.booleanValue())),
+                      status = budgetDoc.map(d => Option(d.getString("status")).getOrElse("ENABLED"))
                     )
                   )
                 )
               )
-              
+
               Future(Ok(s"Successfully created update task for budget $budget_id"))
-            
+
             case _ => Future(BadRequest("No budget found for specified Id"))
           }
         case _ => Future(BadRequest("dollarAmt is a required field"))

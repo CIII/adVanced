@@ -5,13 +5,14 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.google.api.ads.adwords.axis.v201609.cm.{AdGroup, Campaign}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.google.mcc.account.campaign.CampaignControllerHelper._
 import helpers.google.mcc.account.campaign.adgroup.AdGroupControllerHelper._
 import models.mongodb._
+import models.mongodb.MongoExtensions._
 import models.mongodb.google.Google._
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import security.HandlerKeys
 import util.charts.ChartMetaData.getMetaData
@@ -21,17 +22,13 @@ import util.charts.client.ChartColumn.ColumnDataType._
 import util.charts.client.ChartColumn.ColumnType._
 import util.charts.performance.GooglePerformanceCharts._
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
-import com.google.api.ads.adwords.lib.selectorfields.v201609.cm.AdGroupField
-import com.google.api.ads.adwords.axis.v201609.cm.CpcBid
+import scala.concurrent.{ExecutionContext, Future}
 import models.mongodb.google.GoogleAdGroupPerformance
 import models.mongodb.google.GoogleCampaignPerformance
 import models.mongodb.performance.PerformanceEntityFilter
 import models.mongodb.google.GooglePerformance
 
-class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders) extends Controller with I18nSupport {
+class AdGroupController @Inject()(val controllerComponents: ControllerComponents, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
 
   def json = Action {
     implicit request =>
@@ -47,16 +44,16 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
           "adGroupApiId"
         ),
         "adGroup",
-        googleAdGroupCollection
+        googleAdGroupCollection.namespace.getCollectionName
       ))
   }
-  
+
   def attribution = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future(Ok(views.html.google.mcc.account.campaign.adgroup.adgroup_attribution(
         new GoogleAdGroupPerformanceChart(
           getMetaData(
-            request, 
+            request,
             List(GoogleAdGroupPerformance.adGroupHtmlField,
               GoogleAdGroupPerformance.adGroupStateField,
               GooglePerformance.ctrField,
@@ -67,7 +64,7 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
               GooglePerformance.viewThroughConvField
             ),
             request.getQueryString("filterById") match {
-              case Some(id) => 
+              case Some(id) =>
                 List(new PerformanceEntityFilter(GoogleCampaignPerformance.campaignIdField, "eq", List(id.toLong)))
               case _ => List()
             },
@@ -76,16 +73,16 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
         )
       )))
   }
-  
+
   def attributionCSV = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future.successful(Ok.sendFile(
         new GoogleAdGroupPerformanceChart(
           getMetaData(
-            request, 
+            request,
             List(GoogleAdGroupPerformance.adGroupHtmlField),
             request.getQueryString("filterById") match {
-              case Some(id) => 
+              case Some(id) =>
                 List(new PerformanceEntityFilter(GoogleCampaignPerformance.campaignIdField, "eq", List(id.toLong)))
               case _ => List()
             },
@@ -96,6 +93,8 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
   }
   def adGroups = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[AdGroup] with Document-based access
+      val adGroupDocs = googleAdGroupCollection.find().toList
       Future(Ok(views.html.google.mcc.account.campaign.adgroup.ad_groups(
         new ClientChart(
           List(
@@ -104,9 +103,7 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
             new ChartColumn("status", "", "Status", string, dimension),
             new ActionColumn((rowValues: List[Any]) => "/google/mcc/account/campaign/adgroup/%s/".format(rowValues(0).toString))
           ),
-          googleAdGroupCollection.find().toList.map(
-            dboToGoogleEntity[AdGroup](_, "adGroup", None)
-          )
+          adGroupDocs
         ),
         pendingCache(Left(request))
           .filter(
@@ -119,9 +116,11 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
 
   def newAdGroup = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+      val campaignDocs = googleCampaignCollection.find().toList
       Future(Ok(views.html.google.mcc.account.campaign.adgroup.new_ad_group(
         adGroupForm,
-        googleCampaignCollection.find().toList.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+        campaignDocs,
         pendingCache(Left(request))
           .filter(
             x =>
@@ -129,43 +128,45 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
                 && x.changeCategory == ChangeCategory.CAMPAIGN
                 && x.changeType == ChangeType.NEW
           )
-          .map(x => dboToCampaignForm(x.changeData.asDBObject)),
+          .map(x => documentToCampaignForm(x.changeData)),
         List()
       )))
   }
 
   def createAdGroup = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      val current_cache = Await.result(Shared.Shared.redisClient.lrange[PendingCacheStructure](pendingCacheKey(Left(request)), 0, -1), 5 seconds).toList
       adGroupForm.bindFromRequest.fold(
         formWithErrors => {
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+          val campaignDocs = googleCampaignCollection.find().toList
           Future(BadRequest(
             views.html.google.mcc.account.campaign.adgroup.new_ad_group(
               formWithErrors,
-              googleCampaignCollection.find().toList.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+              campaignDocs,
               pendingCache(Left(request))
                 .filter(x =>
                   x.trafficSource == TrafficSource.GOOGLE
                     && x.changeCategory == ChangeCategory.CAMPAIGN
                     && x.changeType == ChangeType.NEW
                 )
-                .map(x => dboToCampaignForm(x.changeData.asDBObject)),
+                .map(x => documentToCampaignForm(x.changeData)),
               List()
             )
           ))
         },
         ad_group => {
-          Shared.Shared.redisClient.lpush(
-            pendingCacheKey(Left(request)),
-            (current_cache :+ PendingCacheStructure(
-              id = current_cache.length + 1,
+          // TODO: Migrate to RedisService injection - redisClient.lpush removed
+          setPendingCache(
+            Left(request),
+            pendingCache(Left(request)) :+ PendingCacheStructure(
+              id = pendingCache(Left(request)).length + 1,
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.AD_GROUP,
-              changeData = adGroupFormToDbo(ad_group)
-            )): _*
+              changeData = adGroupFormToDocument(ad_group)
+            )
           )
-          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups()))
+          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups))
         }
       )
   }
@@ -176,7 +177,8 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
       var error_list = new ListBuffer[String]()
       request.body.file("bulk").foreach {
         bulk => {
-          val field_names = Utilities.getCaseClassParameter[AdGroup]
+          // TODO: Migrate to Google Ads API v18 - replaced Utilities.getCaseClassParameter[AdGroup] with AdGroupForm
+          val field_names = Utilities.getCaseClassParameter[AdGroupForm]
           val ad_group_data_list = Utilities.bulkImport(bulk, field_names)
           for (((ad_group_data, action), index) <- ad_group_data_list.zipWithIndex) {
             adGroupForm.bind(ad_group_data.map(kv => (kv._1, kv._2)).toMap).fold(
@@ -191,7 +193,7 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
                     changeType = ChangeType.withName(action),
                     trafficSource = TrafficSource.GOOGLE,
                     changeCategory = ChangeCategory.AD_GROUP,
-                    changeData = adGroupFormToDbo(ad_group)
+                    changeData = adGroupFormToDocument(ad_group)
                   )
                 )
               }
@@ -200,80 +202,96 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
         }
       }
       if (error_list.nonEmpty) {
+        // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+        val campaignDocs = googleCampaignCollection.find().toList
         Future(BadRequest(views.html.google.mcc.account.campaign.adgroup.new_ad_group(
           adGroupForm,
-          googleCampaignCollection.find().toList.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+          campaignDocs,
           pendingCache(Left(request))
             .filter(x =>
               x.trafficSource == TrafficSource.GOOGLE
                 && x.changeCategory == ChangeCategory.AD_GROUP
                 && x.changeType == ChangeType.NEW
             )
-            .map(x => dboToCampaignForm(x.changeData.asDBObject)),
+            .map(x => documentToCampaignForm(x.changeData)),
           error_list.toList
         )))
       } else {
-        Future(Redirect(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups()))
+        Future(Redirect(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups))
       }
     }
   }
 
   def editAdGroup(api_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      googleAdGroupCollection.findOne(DBObject("apiId" -> api_id)) match {
-        case None => Future(Redirect(controllers.routes.DashboardController.dashboard()))
+      googleAdGroupCollection.findOne(Document("apiId" -> api_id)) match {
+        case None => Future(Redirect(controllers.routes.DashboardController.dashboard))
         case Some(ad_group_obj) =>
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
           val campaigns = googleCampaignCollection.find().toList
-          def ad_group = dboToGoogleEntity[AdGroup](ad_group_obj, "adGroup", None)
+          val adGroupDoc = Option(ad_group_obj.toBsonDocument.get("adGroup")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
+          val adGroupId = adGroupDoc.flatMap(d => Option(d.getLong("id")).map(_.toLong)).getOrElse(0L)
           Future(Ok(views.html.google.mcc.account.campaign.adgroup.edit_ad_group(
-            ad_group.getId,
-            adGroupForm.fill(adGroupDboToAdGroupForm(ad_group_obj)),
-            campaigns.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+            adGroupId,
+            adGroupForm.fill(adGroupDocumentToAdGroupForm(ad_group_obj)),
+            campaigns,
             pendingCache(Left(request)).filter(x =>
               x.trafficSource == TrafficSource.GOOGLE
                 && x.changeCategory == ChangeCategory.CAMPAIGN
                 && x.changeType == ChangeType.NEW
-            ).map(x => dboToCampaignForm(x.changeData.asDBObject))
+            ).map(x => documentToCampaignForm(x.changeData))
           )))
       }
   }
-  
-  def adGroupDboToAdGroupForm(adGroupObj: DBObject): AdGroupForm = {
-    val adGroup = dboToGoogleEntity[AdGroup](adGroupObj, "adGroup", None)
+
+  // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[AdGroup] and AdWords getter calls with Document-based access
+  def adGroupDocumentToAdGroupForm(adGroupObj: Document): AdGroupForm = {
+    val adGroupDoc = Option(adGroupObj.toBsonDocument.get("adGroup")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
     AdGroupForm(
       AdGroupParent(
-        mccObjId = adGroupObj.getAsOrElse[Option[String]]("mccObjId", None),
-        customerApiId = adGroupObj.getAsOrElse[Option[Long]]("customerApiId", None),
-        campaignApiId = adGroupObj.getAsOrElse[Option[Long]]("campaignApiId", None)
+        mccObjId = Option(adGroupObj.getString("mccObjId")),
+        customerApiId = Option(adGroupObj.getLong("customerApiId")).map(_.toLong),
+        campaignApiId = Option(adGroupObj.getLong("campaignApiId")).map(_.toLong)
       ),
-      apiId = Some(adGroup.getId),
-      name = adGroup.getName,
-      status = adGroup.getStatus.toString,
-      maxCpc = Option(microToDollars(adGroup.getBiddingStrategyConfiguration.getBids().filter { 
-        bid => bid.getBidsType().equalsIgnoreCase(AdGroupField.CpcBid.toString)
-      }.head.asInstanceOf[CpcBid].getBid.getMicroAmount)),
-      contentBidCriterionTypeGroup = adGroup.getContentBidCriterionTypeGroup match {
-        case typeGroup if (typeGroup != null) => Some(typeGroup.toString)
-        case _ => None
-      }
+      apiId = adGroupDoc.flatMap(d => Option(d.getLong("id")).map(_.toLong)),
+      name = adGroupDoc.map(_.getString("name")).getOrElse(""),
+      status = adGroupDoc.map(d => Option(d.getString("status")).getOrElse("ENABLED")).getOrElse("ENABLED"),
+      maxCpc = adGroupDoc.flatMap(d =>
+        Option(d.toBsonDocument.get("biddingStrategyConfiguration")).map(v => Document(v.asDocument())).flatMap(bsc =>
+          Option(bsc.toBsonDocument.get("bids")).filter(_.isArray).flatMap { bidsVal =>
+            import scala.jdk.CollectionConverters._
+            bidsVal.asArray.getValues.asScala
+              .collect { case v if v.isDocument => Document(v.asDocument()) }
+              .find(b => Option(b.getString("bidsType")).exists(_.equalsIgnoreCase("CpcBid")))
+              .flatMap(cpcBid =>
+                Option(cpcBid.toBsonDocument.get("bid")).map(v => Document(v.asDocument())).flatMap(bid =>
+                  Option(bid.getLong("microAmount")).map(m => microToDollars(m.toLong))
+                )
+              )
+          }
+        )
+      ),
+      contentBidCriterionTypeGroup = adGroupDoc.flatMap(d => Option(d.getString("contentBidCriterionTypeGroup")))
     )
   }
 
   def saveAdGroup(api_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       adGroupForm.bindFromRequest.fold(formWithErrors => {
+        // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+        val campaignDocs = googleCampaignCollection.find().toList
         Future(BadRequest(
           views.html.google.mcc.account.campaign.adgroup.edit_ad_group(
             api_id,
             formWithErrors,
-            googleCampaignCollection.find().toList.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+            campaignDocs,
             pendingCache(Left(request))
               .filter(x =>
                 x.trafficSource == TrafficSource.GOOGLE
                   && x.changeCategory == ChangeCategory.CAMPAIGN
                   && x.changeType == ChangeType.NEW
               )
-              .map(x => dboToCampaignForm(x.changeData.asDBObject))
+              .map(x => documentToCampaignForm(x.changeData))
           )
         ))
       },
@@ -285,10 +303,10 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.AD_GROUP,
-              changeData = adGroupFormToDbo(ad_group)
+              changeData = adGroupFormToDocument(ad_group)
             )
           )
-          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups()))
+          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups))
         }
       )
   }
@@ -302,21 +320,20 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.GOOGLE,
           changeCategory = ChangeCategory.AD_GROUP,
-          changeData = DBObject("apiId" -> api_id)
+          changeData = Document("apiId" -> api_id)
         )
       )
-      Future(Redirect(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups()))
+      Future(Redirect(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups))
   }
-  
+
   def maxCpc(adGroupId: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
-    implicit request => 
+    implicit request =>
       request.getQueryString("dollarAmt") match {
         case Some(dollarAmtStr) =>
           val dollarAmt = dollarAmtStr.toDouble
-          googleAdGroupCollection.findOne(DBObject("adGroup.object.id" -> adGroupId)) match {
+          googleAdGroupCollection.findOne(Document("adGroup.object.id" -> adGroupId)) match {
             case Some(adGroupObj) =>
-              val adGroupForm = adGroupDboToAdGroupForm(adGroupObj)
-              adGroupForm.maxCpc = Some(dollarAmt)
+              val adGroupFormData = adGroupDocumentToAdGroupForm(adGroupObj).copy(maxCpc = Some(dollarAmt))
               setPendingCache(
                 Left(request),
                 pendingCache(Left(request)) :+ PendingCacheStructure(
@@ -324,15 +341,15 @@ class AdGroupController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
                   changeType = ChangeType.UPDATE,
                   trafficSource = TrafficSource.GOOGLE,
                   changeCategory = ChangeCategory.AD_GROUP,
-                  changeData = adGroupFormToDbo(adGroupForm)
+                  changeData = adGroupFormToDocument(adGroupFormData)
                 )
               )
-              
+
               Future(Ok(s"Successfully created update task for AdGroup $adGroupId"))
-              
+
             case _ => Future(BadRequest("No AdGroup found for specified Id"))
           }
-          
+
         case _ => Future(BadRequest("dollarAmt is a required field"))
       }
   }

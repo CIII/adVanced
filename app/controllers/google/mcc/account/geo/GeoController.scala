@@ -6,22 +6,22 @@ import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import models.mongodb.PermissionGroup
 import models.mongodb.google.GoogleGeoPerformance
-import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.mvc.Controller
+import play.api.i18n.I18nSupport
+import play.api.mvc._
 import security.HandlerKeys
 import util.charts.ChartMetaData._
 import util.charts.performance.GooglePerformanceCharts._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import models.mongodb.performance.PerformanceEntityFilter
 
 class GeoController @Inject()(
-  val messagesApi: MessagesApi,  
-  deadbolt: DeadboltActions,  
-  handlers: HandlerCache,  
+  val controllerComponents: ControllerComponents,
+  deadbolt: DeadboltActions,
+  handlers: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
   
   def attribution = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>

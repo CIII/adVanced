@@ -4,11 +4,12 @@ import javax.inject.Inject
 
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.google.api.ads.adwords.axis.v201609.mcm.Customer
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import models.mongodb.PermissionGroup
 import models.mongodb.google.Google._
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import security.HandlerKeys
 import util.charts._
@@ -16,12 +17,12 @@ import util.charts.client.ChartColumn
 import util.charts.client.ChartColumn.ColumnDataType._
 import util.charts.client.ChartColumn.ColumnType._
 import util.charts.ChartMetaData._
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import util.charts.performance.GooglePerformanceCharts._
 import models.mongodb.google.GoogleAccountPerformance
 
-class AccountController @Inject()(val messagesApi: MessagesApi, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders) extends Controller with I18nSupport {
+class AccountController @Inject()(val controllerComponents: ControllerComponents, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
 
   def json = Action.async {
     implicit request =>
@@ -35,12 +36,14 @@ class AccountController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
           "tsecs"
         ),
         "customer",
-        googleCustomerCollection
+        googleCustomerCollection.namespace.getCollectionName
       )))
   }
 
   def accounts = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Customer] with Document-based access
+      val customerDocs = googleCustomerCollection.find().toList
       Future(Ok(views.html.google.mcc.account.accounts(
         new ClientChart(
           List(
@@ -49,20 +52,18 @@ class AccountController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
             new ChartColumn("descriptiveName", "", "Account Name", string, dimension),
             new ChartColumn("currencyCode", "", "Currency Code", string, dimension)
           ),
-          googleCustomerCollection.find().toList.map(
-            dboToGoogleEntity[Customer](_, "customer", None)
-          )
+          customerDocs
         )
       )
     ))
   }
-  
+
   def attribution = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future(Ok(views.html.google.mcc.account.account_attribution(
         new GoogleAccountPerformanceChart(
           getMetaData(
-            request, 
+            request,
             List(GoogleAccountPerformance.accountHtmlField),
             List(),
             defaultGoogleMetaData
@@ -70,13 +71,13 @@ class AccountController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadbo
         )
       )))
   }
-  
+
   def attributionCSV = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future.successful(Ok.sendFile(
           new GoogleAccountPerformanceChart(
           getMetaData(
-            request, 
+            request,
             List(GoogleAccountPerformance.accountHtmlField),
             List(),
             defaultGoogleMetaData

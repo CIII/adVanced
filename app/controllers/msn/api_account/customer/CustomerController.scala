@@ -5,27 +5,29 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.microsoft.bingads.customermanagement.Customer
-import com.mongodb.casbah.Imports._
+import com.microsoft.bingads.v13.customermanagement.Customer
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.msn.api_account.customer.CustomerControllerHelper
+import models.mongodb.MongoExtensions._
 import models.mongodb.msn.Msn._
 import models.mongodb.{PermissionGroup, Utilities}
-import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.mvc.{Action, Controller}
+import play.api.i18n.I18nSupport
+import play.api.mvc._
 import security.HandlerKeys
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 
 import scala.collection.immutable.List
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
-class CustomerController @Inject()(val messagesApi: MessagesApi, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders) extends Controller with I18nSupport {
+class CustomerController @Inject()(val controllerComponents: ControllerComponents, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
   import CustomerControllerHelper._
 
   def json = Action.async {
     implicit request =>
-      var qry = DBObject.newBuilder
-      var tsecsProjection = DBObject()
+      var qry = Document()
+      var tsecsProjection = Document()
       List(
         "mccObjId",
         "mccApiId",
@@ -36,34 +38,34 @@ class CustomerController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadb
         request.getQueryString(x) match {
           case Some(value) =>
             if (x == "tsecs") {
-              tsecsProjection = DBObject("customer" -> ("$elemMatch" ->(
-                "startTsecs" -> DBObject("$lte" -> value.toLong),
-                "$or" -> MongoDBList(
-                  DBObject("endTsecs" -> -1),
-                  DBObject("endTsecs" -> DBObject("$gte" -> value.toLong))
+              tsecsProjection = Document("customer" -> Document("$elemMatch" -> Document(
+                "startTsecs" -> Document("$lte" -> value.toLong),
+                "$or" -> Seq(
+                  Document("endTsecs" -> -1),
+                  Document("endTsecs" -> Document("$gte" -> value.toLong))
                 )
-                )))
+              )))
             } else {
-              qry += (x -> value)
+              qry = qry ++ Document(x -> value)
             }
           case _ =>
         }
       )
 
-      tsecsProjection.putAll(DBObject("customer" -> DBObject("$slice" -> -1)))
-      val customers = msnCustomerCollection.find(qry.result, tsecsProjection).toList
-      Future(Ok(com.mongodb.util.JSON.serialize(customers)))
+      tsecsProjection = tsecsProjection ++ Document("customer" -> Document("$slice" -> -1))
+      val customers = msnCustomerCollection.find(qry).projection(tsecsProjection).toList
+      Future(Ok(customers.map(_.toJson()).mkString("[", ",", "]")))
   }
 
   def customers(page: Int, pageSize: Int, orderBy: Int, filter: String) = deadbolt.Dynamic(name=PermissionGroup.MSNRead.entryName, handler=handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future(Ok(views.html.msn.api_account.customer.customers(
-        msnCustomerCollection.find().skip(page * pageSize).limit(pageSize).toList.map(dboToMsnEntity[Customer](_, "customer", None)),
+        msnCustomerCollection.find().skip(page * pageSize).limit(pageSize).toList.map(documentToMsnEntity[Customer](_, "customer", None)),
         page,
         pageSize,
         orderBy,
         filter,
-        msnCustomerCollection.count(),
+        msnCustomerCollection.countSync().toInt,
         pendingCache(Left(request))
           .filter(
             x =>
@@ -80,11 +82,11 @@ class CustomerController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadb
 
   def editCustomer(id: String) = deadbolt.Dynamic(name=PermissionGroup.MSNWrite.entryName, handler=handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      msnCustomerCollection.findOne(DBObject("customerApiId" -> id)) match {
+      msnCustomerCollection.findOne(Document("customerApiId" -> id)) match {
         case Some(customer_obj) =>
-          val customer = gson.fromJson(
-            customer_obj.expand[String]("customer").get,
-            classOf[com.microsoft.bingads.customermanagement.Customer]
+          val customer = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+            customer_obj.getString("customer"),
+            classOf[com.microsoft.bingads.v13.customermanagement.Customer]
           )
           Future(Ok(views.html.msn.api_account.customer.edit_customer(
             id,
@@ -124,7 +126,7 @@ class CustomerController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadb
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.MSN,
               changeCategory = ChangeCategory.CUSTOMER,
-              changeData = customerFormToDbo(customer)
+              changeData = customerFormToDocument(customer)
             )
           )
           Future(Redirect(controllers.msn.api_account.customer.routes.CustomerController.customers()))
@@ -151,7 +153,7 @@ class CustomerController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadb
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.MSN,
               changeCategory = ChangeCategory.CUSTOMER,
-              changeData = customerFormToDbo(customer)
+              changeData = customerFormToDocument(customer)
             )
           )
           Future(Redirect(controllers.msn.api_account.customer.routes.CustomerController.customers()))
@@ -168,7 +170,7 @@ class CustomerController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadb
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.MSN,
           changeCategory = ChangeCategory.CUSTOMER,
-          changeData = DBObject("apiId" -> id)
+          changeData = Document("apiId" -> id)
         )
       )
       Future(Redirect(controllers.msn.api_account.customer.routes.CustomerController.customers()))
@@ -195,7 +197,7 @@ class CustomerController @Inject()(val messagesApi: MessagesApi, deadbolt: Deadb
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.MSN,
                     changeCategory = ChangeCategory.CUSTOMER,
-                    changeData = customerFormToDbo(customer)
+                    changeData = customerFormToDocument(customer)
                   )
                 )
               }

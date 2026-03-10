@@ -5,21 +5,22 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.google.api.ads.adwords.axis.v201609.cm.{Campaign, CampaignCriterion, Proximity}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.google.mcc.account.campaign.CampaignControllerHelper._
 import helpers.google.mcc.account.campaign.criterion.CampaignProximityControllerHelper._
 import models.mongodb._
+import models.mongodb.MongoExtensions._
 import models.mongodb.google.Google._
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import security.HandlerKeys
 
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders) extends Controller with I18nSupport {
+class CampaignProximityController @Inject()(val controllerComponents: ControllerComponents, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
 
   def json = Action.async {
     implicit request =>
@@ -34,20 +35,22 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
           "campaignApiId"
         ),
         "criterion",
-        googleCriterionCollection,
+        googleCriterionCollection.namespace.getCollectionName,
         Some("criterionType" -> "Proximity")
       )))
   }
 
   def campaignProximity(page: Int, pageSize: Int, orderBy: Int, filter: String) = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[CampaignCriterion] with Document-based access
+      val criterionDocs = googleCriterionCollection.find(Document("criterionType" -> "CampaignProximity")).skip(page * pageSize).limit(pageSize).toList
       Future(Ok(views.html.google.mcc.account.campaign.criterion.proximity.campaign_proximity(
-        googleCriterionCollection.find(DBObject("criterionType" -> "CampaignProximity")).skip(page * pageSize).limit(pageSize).toList.map(dboToGoogleEntity[CampaignCriterion](_, "criterion", None)),
+        criterionDocs,
         page,
         pageSize,
         orderBy,
         filter,
-        googleCriterionCollection.count(DBObject("criterionType" -> "Proximity")),
+        googleCriterionCollection.count(Document("criterionType" -> "Proximity")).toInt,
         pendingCache(Left(request))
           .filter(x =>
             x.trafficSource == TrafficSource.GOOGLE
@@ -58,16 +61,18 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
 
   def newCampaignProximity = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+      val campaignDocs = googleCampaignCollection.find().toList
       Future(Ok(views.html.google.mcc.account.campaign.criterion.proximity.new_campaign_proximity(
         campaignProximityForm,
-        googleCampaignCollection.find().toList.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+        campaignDocs,
         pendingCache(Left(request))
           .filter(x =>
             x.changeType == ChangeType.NEW
               && x.trafficSource == TrafficSource.GOOGLE
               && x.changeCategory == ChangeCategory.CAMPAIGN
           )
-          .map(x => dboToCampaignForm(x.changeData.asDBObject)),
+          .map(x => documentToCampaignForm(x.changeData)),
         List()
       )))
   }
@@ -76,16 +81,18 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
     implicit request =>
       campaignProximityForm.bindFromRequest.fold(
         formWithErrors => {
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+          val campaignDocs = googleCampaignCollection.find().toList
           Future(BadRequest(views.html.google.mcc.account.campaign.criterion.proximity.new_campaign_proximity(
             formWithErrors,
-            googleCampaignCollection.find().toList.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+            campaignDocs,
             pendingCache(Left(request))
               .filter(x =>
                 x.changeType == ChangeType.NEW &&
                   x.trafficSource == TrafficSource.GOOGLE &&
                   x.changeCategory == ChangeCategory.CAMPAIGN
               )
-              .map(x => dboToCampaignForm(x.changeData.asDBObject)),
+              .map(x => documentToCampaignForm(x.changeData)),
             List()
           )))
         },
@@ -97,7 +104,7 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.CAMPAIGN_PROXIMITY,
-              changeData = campaignProximityFormToDbo(campaign_proximity)
+              changeData = campaignProximityFormToDocument(campaign_proximity)
             )
           )
           Future(Redirect(controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.campaignProximity()))
@@ -110,7 +117,8 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
         var error_list = new ListBuffer[String]()
         request.body.file("bulk").foreach {
           bulk => {
-            val field_names = Utilities.getCaseClassParameter[CampaignCriterion]
+            // TODO: Migrate to Google Ads API v18 - replaced Utilities.getCaseClassParameter[CampaignCriterion] with CampaignProximityForm
+            val field_names = Utilities.getCaseClassParameter[CampaignProximityForm]
             val proximity_data_list = Utilities.bulkImport(bulk, field_names)
             for (((proximity_data, action), index) <- proximity_data_list.zipWithIndex) {
               campaignProximityForm.bind(proximity_data.map(kv => (kv._1, kv._2)).toMap).fold(
@@ -125,7 +133,7 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
                       changeType = ChangeType.withName(action.toUpperCase),
                       trafficSource = TrafficSource.GOOGLE,
                       changeCategory = ChangeCategory.CAMPAIGN_KEYWORD,
-                      changeData = campaignProximityFormToDbo(campaign_proximity)
+                      changeData = campaignProximityFormToDocument(campaign_proximity)
                     )
                   )
               )
@@ -133,16 +141,18 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
           }
         }
         if (error_list.nonEmpty) {
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+          val campaignDocs = googleCampaignCollection.find().toList
           Future(BadRequest(views.html.google.mcc.account.campaign.criterion.proximity.new_campaign_proximity(
             campaignProximityForm,
-            googleCampaignCollection.find().toList.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+            campaignDocs,
             pendingCache(Left(request))
               .filter(x =>
                 x.changeType == ChangeType.NEW
                   && x.trafficSource == TrafficSource.GOOGLE
                   && x.changeCategory == ChangeCategory.CAMPAIGN
               )
-              .map(x => dboToCampaignForm(x.changeData.asDBObject)),
+              .map(x => documentToCampaignForm(x.changeData)),
             error_list.toList
           )))
         } else {
@@ -152,44 +162,48 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
 
   def editCampaignProximity(api_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      googleCriterionCollection.findOne(DBObject("criterionApiId" -> api_id, "criterionType" -> "Proximity")) match {
-        case None => Future(Redirect(controllers.routes.DashboardController.dashboard()))
+      googleCriterionCollection.findOne(Document("criterionApiId" -> api_id, "criterionType" -> "Proximity")) match {
+        case None => Future(Redirect(controllers.routes.DashboardController.dashboard))
         case Some(campaign_criterion_obj) =>
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[CampaignCriterion]/Proximity with Document-based access
           val campaigns = googleCampaignCollection.find().toList
-          def campaign_proximity = dboToGoogleEntity[CampaignCriterion](campaign_criterion_obj, "criterion", None)
+          val criterionDoc = Option(campaign_criterion_obj.toBsonDocument.get("criterion")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
+          val innerCriterionDoc = criterionDoc.flatMap(d => Option(d.toBsonDocument.get("criterion")).map(v => Document(v.asDocument())))
+          val geoPointDoc = innerCriterionDoc.flatMap(d => Option(d.toBsonDocument.get("geoPoint")).map(v => Document(v.asDocument())))
+          val addressDoc = innerCriterionDoc.flatMap(d => Option(d.toBsonDocument.get("address")).map(v => Document(v.asDocument())))
           Future(Ok(views.html.google.mcc.account.campaign.criterion.proximity.edit_campaign_proximity(
             api_id,
             campaignProximityForm.fill(
               CampaignProximityForm(
                 parent = controllers.Google.CampaignCriterionParent(
-                  mccObjId = campaign_criterion_obj.getAsOrElse[Option[String]]("mccObjId", None),
-                  customerApiId = campaign_criterion_obj.getAsOrElse[Option[Long]]("customerApiId", None),
-                  campaignApiId = campaign_criterion_obj.getAsOrElse[Option[Long]]("campaignApiId", None)
+                  mccObjId = Option(campaign_criterion_obj.getString("mccObjId")),
+                  customerApiId = Option(campaign_criterion_obj.getLong("customerApiId")).map(_.toLong),
+                  campaignApiId = Option(campaign_criterion_obj.getLong("campaignApiId")).map(_.toLong)
                 ),
-                apiId = Some(campaign_proximity.getCriterion.getId),
-                isNegative = Some(campaign_proximity.getIsNegative),
-                latitudeInMicroDegrees = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getGeoPoint.getLatitudeInMicroDegrees),
-                longitudeInMicroDegrees = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getGeoPoint.getLongitudeInMicroDegrees),
-                radiusDistanceUnits = campaign_proximity.getCriterion.asInstanceOf[Proximity].getRadiusDistanceUnits.toString,
-                radiusInUnits = campaign_proximity.getCriterion.asInstanceOf[Proximity].getRadiusInUnits,
-                streetAddress = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getAddress.getStreetAddress),
-                streetAddress2 = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getAddress.getStreetAddress2),
-                cityName = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getAddress.getCityName),
-                provinceCode = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getAddress.getProvinceCode),
-                provinceName = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getAddress.getProvinceName),
-                postalCode = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getAddress.getPostalCode),
-                countryCode = Some(campaign_proximity.getCriterion.asInstanceOf[Proximity].getAddress.getCountryCode),
-                bidModifier = Some(campaign_proximity.getBidModifier)
+                apiId = innerCriterionDoc.flatMap(d => Option(d.getLong("id")).map(_.toLong)),
+                isNegative = criterionDoc.flatMap(d => Option(d.getBoolean("isNegative")).map(_.booleanValue())),
+                latitudeInMicroDegrees = geoPointDoc.flatMap(d => Option(d.getInteger("latitudeInMicroDegrees")).map(_.toInt)),
+                longitudeInMicroDegrees = geoPointDoc.flatMap(d => Option(d.getInteger("longitudeInMicroDegrees")).map(_.toInt)),
+                radiusDistanceUnits = innerCriterionDoc.flatMap(d => Option(d.getString("radiusDistanceUnits"))).getOrElse("MILES"),
+                radiusInUnits = innerCriterionDoc.flatMap(d => Option(d.getDouble("radiusInUnits")).map(_.toDouble)).getOrElse(0.0),
+                streetAddress = addressDoc.flatMap(d => Option(d.getString("streetAddress"))),
+                streetAddress2 = addressDoc.flatMap(d => Option(d.getString("streetAddress2"))),
+                cityName = addressDoc.flatMap(d => Option(d.getString("cityName"))),
+                provinceCode = addressDoc.flatMap(d => Option(d.getString("provinceCode"))),
+                provinceName = addressDoc.flatMap(d => Option(d.getString("provinceName"))),
+                postalCode = addressDoc.flatMap(d => Option(d.getString("postalCode"))),
+                countryCode = addressDoc.flatMap(d => Option(d.getString("countryCode"))),
+                bidModifier = criterionDoc.flatMap(d => Option(d.getDouble("bidModifier")).map(_.toDouble))
               )
             ),
-            campaigns.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
+            campaigns,
             pendingCache(Left(request))
               .filter(x =>
                 x.changeType == ChangeType.NEW
                   && x.trafficSource == TrafficSource.GOOGLE
                   && x.changeCategory == ChangeCategory.CAMPAIGN
               )
-              .map(x => dboToCampaignForm(x.changeData.asDBObject))
+              .map(x => documentToCampaignForm(x.changeData))
           )))
       }
   }
@@ -197,18 +211,22 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
   def saveCampaignProximity(api_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       campaignProximityForm.bindFromRequest.fold(
-        formWithErrors => Future(BadRequest(views.html.google.mcc.account.campaign.criterion.proximity.edit_campaign_proximity(
-          api_id,
-          formWithErrors,
-          googleCampaignCollection.find().toList.map(dboToGoogleEntity[Campaign](_, "campaign", None)),
-          pendingCache(Left(request))
-            .filter(x =>
-              x.changeType == ChangeType.NEW
-                && x.trafficSource == TrafficSource.GOOGLE
-                && x.changeCategory == ChangeCategory.CAMPAIGN
-            )
-            .map(x => dboToCampaignForm(x.changeData.asDBObject))
-        ))),
+        formWithErrors => {
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+          val campaignDocs = googleCampaignCollection.find().toList
+          Future(BadRequest(views.html.google.mcc.account.campaign.criterion.proximity.edit_campaign_proximity(
+            api_id,
+            formWithErrors,
+            campaignDocs,
+            pendingCache(Left(request))
+              .filter(x =>
+                x.changeType == ChangeType.NEW
+                  && x.trafficSource == TrafficSource.GOOGLE
+                  && x.changeCategory == ChangeCategory.CAMPAIGN
+              )
+              .map(x => documentToCampaignForm(x.changeData))
+          )))
+        },
         campaign_proximity => {
           setPendingCache(
             Left(request),
@@ -217,7 +235,7 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.CAMPAIGN_PROXIMITY,
-              changeData = campaignProximityFormToDbo(campaign_proximity)
+              changeData = campaignProximityFormToDocument(campaign_proximity)
             )
           )
           Future(Redirect(controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.campaignProximity()))
@@ -234,7 +252,7 @@ class CampaignProximityController @Inject()(val messagesApi: MessagesApi, deadbo
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.GOOGLE,
           changeCategory = ChangeCategory.CAMPAIGN_PROXIMITY,
-          changeData = DBObject("apiId" -> api_id)
+          changeData = Document("apiId" -> api_id)
         )
       )
       Future(Redirect(controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.campaignProximity()))

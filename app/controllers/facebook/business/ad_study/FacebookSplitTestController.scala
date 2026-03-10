@@ -3,7 +3,7 @@ package controllers.facebook.business.ad_study
 import play.api.mvc._
 import javax.inject.Inject
 import org.joda.time.DateTime
-import play.api.Logger
+import play.api.Logging
 import play.api.libs.json._
 import sync.facebook.business.ad_study.FacebookSplitTestActor
 import models.mongodb.facebook.Facebook._
@@ -14,13 +14,14 @@ import sync.shared.Facebook._
 import sync.facebook.business.ad_study._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.mongodb.casbah.Imports.{ObjectId, _}
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import models.mongodb._
+import models.mongodb.MongoExtensions._
 import models.mongodb.facebook.Facebook._
 import security.HandlerKeys
 import play.api.libs.ws._
-import scala.concurrent.ExecutionContext.Implicits.global
-import play.api.i18n.MessagesApi
+import scala.concurrent.ExecutionContext
 import play.api.i18n.I18nSupport
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -31,22 +32,22 @@ import play.api.data.Mapping
 
 
 class FacebookSplitTestController @Inject() (
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport with Logging {
   import FacebookSplitTestController._
   
   def splitTests(page: Int, pageSize: Int, orderBy: Int, filter: String) = deadbolt.Dynamic(name=PermissionGroup.FacebookRead.entryName, handler=handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future(Ok(views.html.facebook.business.ad_study.split_test(
-        facebookSplitTestCollection.find().skip(page * pageSize).limit(pageSize).toList.map(FacebookSplitTest.fromDBO),
+        facebookSplitTestCollection.find().skip(page * pageSize).limit(pageSize).toList.map(FacebookSplitTest.fromDocument),
         page,
         pageSize,
         orderBy,
         filter,
-        facebookSplitTestCollection.count(),
+        facebookSplitTestCollection.countSync().toInt,
         pendingCache(Left(request))
           .filter(
             x =>
@@ -78,7 +79,7 @@ class FacebookSplitTestController @Inject() (
     implicit request =>
       fbSplitTestForm.bindFromRequest.fold(
         formWithErrors => {
-          Logger.info("Error saving split test" + formWithErrors.toString)
+          logger.info("Error saving split test" + formWithErrors.toString)
           Future(BadRequest(views.html.facebook.business.ad_study.new_split_test(formWithErrors)))
         },  
         splitTest => { 
@@ -89,7 +90,7 @@ class FacebookSplitTestController @Inject() (
                 changeType = ChangeType.NEW,
                 trafficSource = TrafficSource.FACEBOOK,
                 changeCategory = ChangeCategory.AD_STUDY,
-                changeData = FacebookSplitTest.toDBO(splitTest))
+                changeData = FacebookSplitTest.toDocument(splitTest))
           )
           
           Future(Redirect(controllers.facebook.business.ad_study.routes.FacebookSplitTestController.splitTests(0, 10, 2, "")))
@@ -108,7 +109,7 @@ class FacebookSplitTestController @Inject() (
     implicit request =>
       fbSplitTestForm.bindFromRequest.fold(
         formWithErrors => {
-          Logger.info("Error saving split test" + formWithErrors.toString)
+          logger.info("Error saving split test" + formWithErrors.toString)
           Future(BadRequest(views.html.facebook.business.ad_study.edit_split_test(formWithErrors)))
         },  
         splitTest => { 
@@ -119,7 +120,7 @@ class FacebookSplitTestController @Inject() (
                 changeType = ChangeType.NEW,
                 trafficSource = TrafficSource.FACEBOOK,
                 changeCategory = ChangeCategory.AD_STUDY,
-                changeData = FacebookSplitTest.toDBO(splitTest))
+                changeData = FacebookSplitTest.toDocument(splitTest))
           )
           
           Future(Redirect(controllers.facebook.business.ad_study.routes.FacebookSplitTestController.splitTests(0, 10, 2, "")))
@@ -137,7 +138,7 @@ class FacebookSplitTestController @Inject() (
             changeType = ChangeType.DELETE,
             trafficSource = TrafficSource.FACEBOOK,
             changeCategory = ChangeCategory.AD_STUDY,
-            changeData = FacebookSplitTest.toDBO(splitTest))
+            changeData = FacebookSplitTest.toDocument(splitTest))
       )
             
       Future(Redirect(controllers.facebook.business.ad_study.routes.FacebookSplitTestController.splitTests(0, 10, 2, "")))

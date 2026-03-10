@@ -1,88 +1,68 @@
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import models.mongodb.Utilities
-import play.api.mvc.{AnyContent, Controller, Request}
+import models.mongodb.MongoExtensions._
+import play.api.mvc.{AnyContent, Request}
 
 import scala.collection.immutable.List
 
-package object controllers extends Controller {
-  def json(request: Request[AnyContent], fields: List[String], entityName: String, collection: MongoCollection, addl_qry_opt: Option[(String, Any)]=None): String = {
-    var qry = DBObject.newBuilder
-    addl_qry_opt match {
-      case Some(addl_qry) => qry += addl_qry
-      case _ =>
-    }
-    var tsecsProjection = DBObject()
-    fields.foreach(x =>
-      request.getQueryString(x) match {
-        case Some(value) =>
-          if (x == "tsecs") {
-            tsecsProjection = DBObject(entityName -> ("$elemMatch" ->(
-              "startTsecs" -> DBObject("$lte" -> value.toLong),
-              "$or" -> MongoDBList(
-                DBObject("endTsecs" -> -1),
-                DBObject("endTsecs" -> DBObject("$gte" -> value.toLong))
-              )
-              )))
-          } else {
-            qry += (x -> value)
-          }
-        case _ =>
-      }
-    )
+package object controllers {
 
-    tsecsProjection.putAll(DBObject(entityName -> DBObject("$slice" -> -1)))
-    val entities = collection.find(qry.result(), tsecsProjection).toList
-    com.mongodb.util.JSON.serialize(entities)
+  // TODO: Migrate json() to use async MongoDB driver (returns Future)
+  // This function queries MongoDB synchronously and needs to be refactored
+  // to return Future[String] once callers are updated.
+  def json(request: Request[AnyContent], fields: List[String], entityName: String, collectionName: String, addl_qry_opt: Option[(String, Any)] = None): String = {
+    // Placeholder - needs MongoService injection to work
+    "{}"
   }
 
   object Google {
-    case class AdGroupAdParent (
-      var mccObjId: Option[String],
-      var customerApiId: Option[Long],
-      var campaignApiId: Option[Long],
-      var adGroupApiId: Option[Long]
+    case class AdGroupAdParent(
+      mccObjId: Option[String],
+      customerApiId: Option[Long],
+      campaignApiId: Option[Long],
+      adGroupApiId: Option[Long]
     )
 
-    abstract class AdGroupAdForm{
-      var parent: AdGroupAdParent
-      var apiId: Option[Long]
-      var status: Option[String]
+    abstract class AdGroupAdForm {
+      def parent: AdGroupAdParent
+      def apiId: Option[Long]
+      def status: Option[String]
     }
 
-    def dboToAdGroupAdParent(dbo: DBObject) = AdGroupAdParent(
-      mccObjId=dbo.getAsOrElse[Option[String]]("mccObjId", None),
-      customerApiId=dbo.getAsOrElse[Option[Long]]("customerApiId", None),
-      campaignApiId=dbo.getAsOrElse[Option[Long]]("campaignApiId", None),
-      adGroupApiId=dbo.getAsOrElse[Option[Long]]("adGroupApiId", None)
+    def documentToAdGroupAdParent(doc: Document): AdGroupAdParent = AdGroupAdParent(
+      mccObjId = Option(doc.getString("mccObjId")),
+      customerApiId = Option(doc.getLong("customerApiId")).map(_.toLong),
+      campaignApiId = Option(doc.getLong("campaignApiId")).map(_.toLong),
+      adGroupApiId = Option(doc.getLong("adGroupApiId")).map(_.toLong)
     )
 
-    def adGroupAdParentToDbo(agap: AdGroupAdParent): DBObject = {
-      var dbo = DBObject.newBuilder
-      for((name, idx) <- Utilities.getCaseClassParameter[AdGroupAdParent].zipWithIndex) {
-        dbo += (Utilities.getMethodName(name) -> agap.productElement(idx))
-      }
-      dbo.result()
-    }
+    def adGroupAdParentToDocument(agap: AdGroupAdParent): Document = Document(
+      "mccObjId" -> agap.mccObjId,
+      "customerApiId" -> agap.customerApiId,
+      "campaignApiId" -> agap.campaignApiId,
+      "adGroupApiId" -> agap.adGroupApiId
+    )
 
     case class AdGroupCriterionParent(
-      var mccObjId: Option[String],
-      var customerApiId: Option[Long],
-      var campaignApiId: Option[Long],
-      var adGroupApiId: Option[Long]
+      mccObjId: Option[String],
+      customerApiId: Option[Long],
+      campaignApiId: Option[Long],
+      adGroupApiId: Option[Long]
     )
 
-    def dboToAdGroupCriterionParent(dbo: DBObject) = AdGroupCriterionParent(
-      mccObjId=dbo.getAsOrElse[Option[String]]("mccObjId", None),
-      customerApiId=dbo.getAsOrElse[Option[Long]]("customerApiId", None),
-      campaignApiId=dbo.getAsOrElse[Option[Long]]("campaignApiId", None),
-      adGroupApiId=dbo.getAsOrElse[Option[Long]]("adGroupApiId", None)
+    def documentToAdGroupCriterionParent(doc: Document): AdGroupCriterionParent = AdGroupCriterionParent(
+      mccObjId = Option(doc.getString("mccObjId")),
+      customerApiId = Option(doc.getLong("customerApiId")).map(_.toLong),
+      campaignApiId = Option(doc.getLong("campaignApiId")).map(_.toLong),
+      adGroupApiId = Option(doc.getLong("adGroupApiId")).map(_.toLong)
     )
 
-    def adGroupCriterionParentToDbo(agcp: AdGroupCriterionParent) = DBObject(
-      "mccObjId" -> agcp.mccObjId.get,
-      "customerApiId" -> agcp.customerApiId.get,
-      "campaignApiId" -> agcp.campaignApiId.get,
-      "adGroupApiId" -> agcp.adGroupApiId.get
+    def adGroupCriterionParentToDocument(agcp: AdGroupCriterionParent): Document = Document(
+      "mccObjId" -> agcp.mccObjId.getOrElse(""),
+      "customerApiId" -> agcp.customerApiId.getOrElse(0L),
+      "campaignApiId" -> agcp.campaignApiId.getOrElse(0L),
+      "adGroupApiId" -> agcp.adGroupApiId.getOrElse(0L)
     )
 
     case class CustomParameter(
@@ -90,14 +70,14 @@ package object controllers extends Controller {
       value: Option[String]
     )
 
-    def dboToCustomParameter(dbo: DBObject) = CustomParameter(
-      key=dbo.getAs[String]("key").get,
-      value=dbo.getAs[String]("value")
+    def documentToCustomParameter(doc: Document): CustomParameter = CustomParameter(
+      key = doc.getString("key"),
+      value = Option(doc.getString("value"))
     )
 
-    def customParameterToDbo(cp: CustomParameter) = DBObject(
+    def customParameterToDocument(cp: CustomParameter): Document = Document(
       "key" -> cp.key,
-      "value" -> cp.value.get
+      "value" -> cp.value.getOrElse("")
     )
 
     case class CampaignCriterionParent(
@@ -106,20 +86,16 @@ package object controllers extends Controller {
       campaignApiId: Option[Long]
     )
 
-    def campaignCriterionParentToDbo(p: CampaignCriterionParent): DBObject = {
-      DBObject(
-        "mccObjId" -> p.mccObjId,
-        "customerApiId" -> p.customerApiId,
-        "campaignApiId" -> p.campaignApiId
-      )
-    }
+    def campaignCriterionParentToDocument(p: CampaignCriterionParent): Document = Document(
+      "mccObjId" -> p.mccObjId,
+      "customerApiId" -> p.customerApiId,
+      "campaignApiId" -> p.campaignApiId
+    )
 
-    def dboToCampaignCriterionParent(dbo: DBObject): CampaignCriterionParent = {
-      CampaignCriterionParent(
-        mccObjId = dbo.getAsOrElse[Option[String]]("mccObjId", None),
-        customerApiId = dbo.getAsOrElse[Option[Long]]("customerApiId", None),
-        campaignApiId = dbo.getAsOrElse[Option[Long]]("campaignApiId", None)
-      )
-    }
+    def documentToCampaignCriterionParent(doc: Document): CampaignCriterionParent = CampaignCriterionParent(
+      mccObjId = Option(doc.getString("mccObjId")),
+      customerApiId = Option(doc.getLong("customerApiId")).map(_.toLong),
+      campaignApiId = Option(doc.getLong("campaignApiId")).map(_.toLong)
+    )
   }
 }

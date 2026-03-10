@@ -1,18 +1,17 @@
 package controllers.advertisers
 
 import be.objectify.deadbolt.scala.DeadboltActions
-import play.api.mvc.Controller
+import play.api.mvc._
 import play.api.i18n.I18nSupport
 import javax.inject.Inject
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import play.api.mvc.Results._
-import scala.concurrent.ExecutionContext.Implicits.global
-import play.api.i18n.MessagesApi
 import play.api.libs.json.JsObject
 import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
-import slick.driver.JdbcProfile
+import slick.jdbc.JdbcProfile
 import play.api.libs.json.Json
 import play.api.Logger
 import be.objectify.deadbolt.scala.cache.HandlerCache
@@ -22,17 +21,18 @@ import org.joda.time.format.DateTimeFormat
 import org.joda.time.DateTime
 
 class AdvertiserController @Inject()(
-  val messagesApi: MessagesApi, 
-  deadbolt: DeadboltActions, 
-  handler: HandlerCache, 
-  implicit val environment: play.api.Environment, 
-  implicit val configuration: play.api.Configuration, 
+  val controllerComponents: ControllerComponents,
+  deadbolt: DeadboltActions,
+  handler: HandlerCache,
+  implicit val environment: play.api.Environment,
+  implicit val configuration: play.api.Configuration,
   protected val dbConfigProvider: DatabaseConfigProvider
-) extends Controller with I18nSupport with HasDatabaseConfigProvider[JdbcProfile] {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport with HasDatabaseConfigProvider[JdbcProfile] {
   import driver.api._
-  
+  val logger = Logger(this.getClass)
+
   val dateTimeFormat = DateTimeFormat.forPattern("yyyy-MM-dd")
-  val timeout = Duration(configuration.getString("defaultMySQLTimeout").getOrElse(throw new Exception("Missing config parameter for default MySQL timeout: defaultMySQLTimeout")) + "seconds")
+  val timeout = Duration(configuration.get[String]("defaultMySQLTimeout") + "seconds")
   
   def advertiser(advertiserId: Int) = deadbolt.SubjectPresent()() {
     implicit request =>
@@ -42,8 +42,9 @@ class AdvertiserController @Inject()(
       Future(Ok(views.html.advertiser("", advertiserId, advertiserName, startDate, endDate, getAdvertiserJson(advertiserId, startDate, endDate))))
   }
   
+  // TODO: Replace blocking call with async Future composition
   def getAdvertiserJson(adv_id: Int, start: String, end: String): JsObject ={
-    Logger.debug("Fetching data for advertiser: %d between %s and %s".format(adv_id, start, end))
+    logger.debug("Fetching data for advertiser: %d between %s and %s".format(adv_id, start, end))
     Json.parse(s"""{"start": "$start", "end": "$end", "adv_id": "$adv_id", "results": [${Await.result(db.run(sql"""
         SELECT JSON_OBJECT(
             'date', date(created_at),
@@ -58,11 +59,12 @@ class AdvertiserController @Inject()(
       ).mkString(",")}]}""").as[JsObject]
   }
 
+  // TODO: Replace blocking call with async Future composition
   def getAdvertiserNameForId(adv_id: Int): String = {
-    Logger.debug("Retrieving advertiser name for id: %d".format(adv_id))
+    logger.debug("Retrieving advertiser name for id: %d".format(adv_id))
     Await.result(
-        db.run(sql"""SELECT name FROM advertisers WHERE id=$adv_id""".as[(String)]), 
-        Duration.Inf
+        db.run(sql"""SELECT name FROM advertisers WHERE id=$adv_id""".as[(String)]),
+        30.seconds
     ).mkString
   }
 }

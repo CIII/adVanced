@@ -5,36 +5,31 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
 import be.objectify.deadbolt.scala.cache.HandlerCache
-import com.facebook.ads.sdk.{AdSet, Campaign}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.facebook.api_account.campaign.ad_set.AdSetControllerHelper._
-import helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignParent
+import models.mongodb.MongoExtensions._
 import models.mongodb.{PermissionGroup, Utilities}
 import models.mongodb.facebook.Facebook._
 import org.bson.types.ObjectId
 import org.joda.time.DateTime
 
-import collection.JavaConverters._
-import play.api.i18n.{I18nSupport, MessagesApi}
+import scala.jdk.CollectionConverters._
+import play.api.i18n.I18nSupport
 
-import scala.concurrent.duration._
-import play.api.mvc.BodyParsers.parse
-import play.api.mvc.{Action, Controller}
-import play.api.cache.{Cache, CacheApi}
+import play.api.mvc._
 import security.HandlerKeys
 
 import scala.collection.immutable.List
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{ExecutionContext, Future}
 
 class AdSetController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
-  actionBuilder: ActionBuilders,
-  cache: CacheApi
-) extends Controller with I18nSupport {
+  actionBuilder: ActionBuilders
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
   def json = Action.async {
     implicit request =>
       Future(Ok(controllers.json(
@@ -62,7 +57,7 @@ class AdSetController @Inject()(
           "is_auto_bid"
         ),
         "campaign",
-        facebookCampaignCollection
+        facebookCampaignCollection.namespace.getCollectionName
       )))
   }
 
@@ -70,15 +65,13 @@ class AdSetController @Inject()(
     implicit request =>
       val adSets = facebookAdSetCollection.find().skip(page * pageSize).limit(pageSize).toList
       Future(Ok(views.html.facebook.api_account.campaign.ad_set.ad_sets(
-        adSets.map(dboToFacebookEntity[AdSet](_, "adSet", None)),
+        adSets.map(documentToFacebookEntity(_, "adSet", None)),
         page,
         pageSize,
         orderBy,
         filter,
-        facebookAdSetCollection.count(),
-        cache.get(pendingCacheKey(Left(request)))
-          .getOrElse(List())
-          .asInstanceOf[List[PendingCacheStructure]]
+        facebookAdSetCollection.countSync().toInt,
+        pendingCache(Left(request))
           .filter(x => x.trafficSource == TrafficSource.FACEBOOK && x.changeCategory == ChangeCategory.CAMPAIGN)
       )))
   }
@@ -93,35 +86,44 @@ class AdSetController @Inject()(
 
   def editAdSet(api_id: String) = deadbolt.Dynamic(name = PermissionGroup.FacebookWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      facebookAdSetCollection.findOne(DBObject("apiId" -> api_id)) match {
+      facebookAdSetCollection.findOne(Document("apiId" -> api_id)) match {
         case Some(adSetObj) =>
-          def adSet = dboToFacebookEntity[AdSet](adSetObj, "adSet", None)
+          val adSet = documentToFacebookEntity(adSetObj, "adSet", None)
           Future(Ok(views.html.facebook.api_account.campaign.ad_set.edit_ad_set(
             api_id,
             adSetForm.fill(
               AdSetForm(
                 AdSetParent(
-                  apiAccountObjId = adSetObj.getAsOrElse[Option[String]]("apiAccountObjId", None),
-                  campaignApiId = adSetObj.getAsOrElse[Option[String]]("campaignApiId", None)
+                  apiAccountObjId = Option(adSetObj.getString("apiAccountObjId")),
+                  campaignApiId = Option(adSetObj.getString("campaignApiId"))
                 ),
-                apiId = Some(adSet.getId),
-                accountId = adSet.getFieldAccountId,
-                adLabels = None,//adSet.getFieldAdlabels.asScala.toList.map(_.),
-                campaignId = adSet.getFieldCampaignId,
-                configuredStatus = adSet.getFieldConfiguredStatus.toString,
-                createdTime = adSet.getFieldCreatedTime,
-                dailyBudget = Some(adSet.getFieldDailyBudget),
-                endTime = Some(adSet.getFieldEndTime),
-                frequencyCap = Some(adSet.getFieldFrequencyCap),
-                frequencyCapResetPeriod = Some(adSet.getFieldFrequencyCapResetPeriod),
-                isAutoBid = adSet.getFieldIsAutobid,
-                lifetimeBudget = Some(adSet.getFieldLifetimeBudget),
-                effectiveStatus = Some(adSet.getFieldEffectiveStatus.toString),
-                spendCap = None,
-                canUseSpendCap = None,
-                name = adSet.getFieldName,
-                status = Some(adSet.getFieldStatus.toString),
-                updatedTime = Some(adSet.getFieldUpdatedTime)
+                apiId = Option(adSet.getString("id")),
+                accountId = Option(adSet.getString("account_id")).getOrElse(""),
+                adLabels = None,
+                bidAmount = Option(adSet.getLong("bid_amount")).map(_.toLong).getOrElse(0L),
+                billingEvent = Option(adSet.getString("billing_event")).getOrElse(""),
+                budgetRemaining = Option(adSet.getLong("budget_remaining")).map(_.toLong),
+                campaignId = Option(adSet.getString("campaign_id")).getOrElse(""),
+                configuredStatus = Option(adSet.getString("configured_status")).getOrElse(""),
+                createdTime = Option(adSet.getString("created_time")).map(DateTime.parse).getOrElse(org.joda.time.DateTime.now),
+                dailyBudget = Option(adSet.getLong("daily_budget")).map(_.toLong),
+                endTime = Option(adSet.getString("end_time")).flatMap {
+                  case s if s != null && s.nonEmpty => Some(DateTime.parse(s))
+                  case _ => None
+                },
+                frequencyCap = Option(adSet.getInteger("frequency_cap")).map(_.intValue()),
+                frequencyCapResetPeriod = Option(adSet.getInteger("frequency_cap_reset_period")).map(_.intValue()),
+                isAutoBid = Option(adSet.getBoolean("is_autobid")).exists(_.booleanValue()),
+                lifetimeBudget = Option(adSet.getLong("lifetime_budget")).map(_.toLong),
+                effectiveStatus = Option(adSet.getString("effective_status")),
+                optimizationGoal = Option(adSet.getString("optimization_goal")),
+                startTime = Option(adSet.getString("start_time")).flatMap {
+                  case s if s != null && s.nonEmpty => Some(DateTime.parse(s))
+                  case _ => None
+                },
+                name = Option(adSet.getString("name")).getOrElse(""),
+                status = Option(adSet.getString("status")),
+                updatedTime = Option(adSet.getString("updated_time"))
               )
             )
           )))
@@ -132,7 +134,6 @@ class AdSetController @Inject()(
 
   def createAdSet = deadbolt.Dynamic(name = PermissionGroup.FacebookWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      val current_cache = Await.result(Shared.Shared.redisClient.lrange[PendingCacheStructure](pendingCacheKey(Left(request)), 0, -1), 5 seconds).toList
       adSetForm.bindFromRequest.fold(
         formWithErrors => {
           Future(BadRequest(
@@ -143,15 +144,16 @@ class AdSetController @Inject()(
           ))
         },
         adSet => {
-          Shared.Shared.redisClient.lpush(
-            pendingCacheKey(Left(request)),
-            current_cache :+ PendingCacheStructure(
-              id = current_cache.length + 1,
+          // TODO: Migrate to RedisService injection - redisClient.lpush removed
+          setPendingCache(
+            Left(request),
+            pendingCache(Left(request)) :+ PendingCacheStructure(
+              id = pendingCache(Left(request)).length + 1,
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.FACEBOOK,
               changeCategory = ChangeCategory.AD_SET,
-              changeData = adSetFormToDbo(adSet)
-            ): _*
+              changeData = adSetFormToDocument(adSet)
+            )
           )
           Future(Redirect(controllers.facebook.api_account.campaign.ad_set.routes.AdSetController.ad_sets()))
         }
@@ -163,7 +165,7 @@ class AdSetController @Inject()(
       var error_list = new ListBuffer[String]()
       request.body.file("bulk").foreach {
         bulk => {
-          val field_names = Utilities.getCaseClassParameter[AdSet]
+          val field_names = Utilities.getCaseClassParameter[AdSetForm]
           val ad_set_data_list = Utilities.bulkImport(bulk, field_names)
           for (((ad_set_data, action), index) <- ad_set_data_list.zipWithIndex) {
             adSetForm.bind(ad_set_data.map(kv => (kv._1, kv._2)).toMap).fold(
@@ -178,7 +180,7 @@ class AdSetController @Inject()(
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.FACEBOOK,
                     changeCategory = ChangeCategory.AD_SET,
-                    changeData = adSetFormToDbo(adSet)
+                    changeData = adSetFormToDocument(adSet)
                   )
                 )
               }
@@ -217,7 +219,7 @@ class AdSetController @Inject()(
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.FACEBOOK,
               changeCategory = ChangeCategory.AD_SET,
-              changeData = adSetFormToDbo(adSet)
+              changeData = adSetFormToDocument(adSet)
             )
           )
           Future(Redirect(controllers.facebook.api_account.campaign.ad_set.routes.AdSetController.ad_sets()))
@@ -235,7 +237,7 @@ class AdSetController @Inject()(
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.FACEBOOK,
           changeCategory = ChangeCategory.AD_SET,
-          changeData = DBObject("apiId" -> api_id)
+          changeData = Document("apiId" -> api_id)
         )
       )
       Future(Redirect(controllers.facebook.api_account.campaign.ad_set.routes.AdSetController.ad_sets()))

@@ -4,16 +4,18 @@ import javax.inject.Inject
 
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import play.api.i18n.{I18nSupport, MessagesApi}
+import org.apache.pekko.stream.scaladsl.Flow
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 
 class StatusController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
-  def alerts = WebSocket.tryAccept[String] { implicit request =>
-    sync.status.Status.attach(request.session.get(Security.username).get)
+) extends BaseController with I18nSupport {
+  // TODO: Implement with Pekko Streams when status broadcasting is re-enabled
+  def alerts = WebSocket.accept[String, String] { _ =>
+    Flow[String].map(_ => "{}")
   }
 }

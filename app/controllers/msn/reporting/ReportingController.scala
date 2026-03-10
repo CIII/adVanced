@@ -5,20 +5,34 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.msn.reporting.ReportingControllerHelper._
 import models.mongodb.msn.Msn._
-import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.mvc.{Action, Controller}
-import scala.concurrent.ExecutionContext.Implicits.global
+import models.mongodb.MongoExtensions._
+import play.api.i18n.I18nSupport
+import play.api.mvc._
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 class ReportingController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
+
+  // TODO: msnReportCollection was previously a map from MsnReportType -> MongoCollection.
+  // It is now a single MongoCollection[Document]. Filter by reportType field instead.
+  private def getReportDocs(reportType: String, qry: Document): List[Document] = {
+    val fullQry = qry ++ Document("reportType" -> reportType)
+    msnReportCollection.find(fullQry).toList
+  }
+
+  // TODO: Implement proper CSV serialisation from MongoDB documents.
+  private def mongoToCsv(docs: List[Document]): String = {
+    docs.map(_.toJson()).mkString("[", ",", "]")
+  }
 
   def json(
     reportType: String,
@@ -31,11 +45,8 @@ class ReportingController @Inject()(
   ) = Action.async {
     implicit request =>
       Future(Ok(
-        com.mongodb.util.JSON.serialize(
-          MongoDBList(
-            msnReportCollection(MsnReportType.withName(reportType)).find(buildQry(campaignId, adGroupId, adId, keywordId, startDate, endDate)).toList: _*
-          )
-        )
+        getReportDocs(reportType, buildQry(campaignId, adGroupId, adId, keywordId, startDate, endDate))
+          .map(_.toJson()).mkString("[", ",", "]")
       ))
   }
 
@@ -51,8 +62,7 @@ class ReportingController @Inject()(
     implicit request =>
       Future(Ok(
         mongoToCsv(
-          msnReportCollection(MsnReportType.withName(reportType)).find(buildQry(campaignId, adGroupId, adId, keywordId, startDate, endDate))
-            .toList
+          getReportDocs(reportType, buildQry(campaignId, adGroupId, adId, keywordId, startDate, endDate))
         )
       ))
   }

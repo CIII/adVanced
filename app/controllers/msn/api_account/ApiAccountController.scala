@@ -5,36 +5,38 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.msn.api_account.ApiAccountControllerHelper
 import helpers.msn.api_account.ApiAccountControllerHelper._
 import models.mongodb._
+import models.mongodb.MongoExtensions._
 import models.mongodb.msn.Msn._
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import security.HandlerKeys
 
 import scala.collection.immutable.List
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class ApiAccountController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
 
   def api_accounts(page: Int, pageSize: Int, orderBy: Int, filter: String) = deadbolt.Dynamic(name=PermissionGroup.MSNRead.entryName, handler=handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future(Ok(views.html.msn.api_account.api_accounts(
-        msnApiAccountCollection.find().toList.map(dboToApiAccount),
+        msnApiAccountCollection.find().toList.map(documentToApiAccount),
         page,
         pageSize,
         orderBy,
         filter,
-        msnApiAccountCollection.count(),
+        msnApiAccountCollection.countSync().toInt,
         pendingCache(Left(request))
           .filter(
             x =>
@@ -51,9 +53,9 @@ class ApiAccountController @Inject()(
 
   def editApiAccount(id: String) = deadbolt.Dynamic(name=PermissionGroup.MSNWrite.entryName, handler=handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      msnApiAccountCollection.findOne(DBObject("_id" -> new ObjectId(id))) match {
+      msnApiAccountCollection.findOne(Document("_id" -> new org.bson.types.ObjectId(id))) match {
         case Some(account_obj) =>
-          val apiAccount = dboToApiAccount(account_obj)
+          val apiAccount = documentToApiAccount(account_obj)
           Future(Ok(views.html.msn.api_account.edit_api_account(
             id,
             apiAccountForm.fill(
@@ -84,7 +86,7 @@ class ApiAccountController @Inject()(
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.MSN,
               changeCategory = ChangeCategory.API_ACCOUNT,
-              changeData = apiAccountToDbo(api_account)
+              changeData = apiAccountToDocument(api_account)
             )
           )
           Future(Redirect(controllers.msn.api_account.routes.ApiAccountController.api_accounts()))
@@ -112,7 +114,7 @@ class ApiAccountController @Inject()(
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.MSN,
               changeCategory = ChangeCategory.API_ACCOUNT,
-              changeData = apiAccountToDbo(api_account)
+              changeData = apiAccountToDocument(api_account)
             )
           )
           Future(Redirect(controllers.msn.api_account.routes.ApiAccountController.api_accounts()))
@@ -129,7 +131,7 @@ class ApiAccountController @Inject()(
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.MSN,
           changeCategory = ChangeCategory.API_ACCOUNT,
-          changeData = DBObject("apiId" -> id)
+          changeData = Document("apiId" -> id)
         )
       )
       Future(Redirect(controllers.msn.api_account.routes.ApiAccountController.api_accounts()))
@@ -156,7 +158,7 @@ class ApiAccountController @Inject()(
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.MSN,
                     changeCategory = ChangeCategory.API_ACCOUNT,
-                    changeData = apiAccountToDbo(api_account)
+                    changeData = apiAccountToDocument(api_account)
                   )
                 )
               }

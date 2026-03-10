@@ -5,31 +5,33 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.facebook.api_account.ApiAccountControllerHelper._
+import models.mongodb.MongoExtensions._
 import models.mongodb.facebook.Facebook._
 import models.mongodb.{PermissionGroup, Utilities}
 import org.bson.types.ObjectId
-import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.mvc.Controller
+import play.api.i18n.I18nSupport
+import play.api.mvc._
 import security.HandlerKeys
 
 import scala.collection.immutable.List
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
-class ApiAccountController @Inject()(val messagesApi: MessagesApi, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders) extends Controller with I18nSupport {
+class ApiAccountController @Inject()(val controllerComponents: ControllerComponents, deadbolt: DeadboltActions, handlers: HandlerCache, actionBuilder: ActionBuilders)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
 
   def api_accounts(page: Int, pageSize: Int, orderBy: Int, filter: String) = deadbolt.Dynamic(name=PermissionGroup.FacebookRead.entryName, handler=handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future(Ok(views.html.facebook.api_account.api_accounts(
-        facebookApiAccountCollection.find().toList.map(dboToApiAccount),
+        facebookApiAccountCollection.find().toList.map(documentToApiAccount),
         page,
         pageSize,
         orderBy,
         filter,
-        facebookApiAccountCollection.count(),
+        facebookApiAccountCollection.countSync().toInt,
         pendingCache(Left(request))
           .filter(
             x =>
@@ -46,9 +48,9 @@ class ApiAccountController @Inject()(val messagesApi: MessagesApi, deadbolt: Dea
 
   def editApiAccount(id: String) = deadbolt.Dynamic(name=PermissionGroup.FacebookWrite.entryName, handler=handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      facebookApiAccountCollection.findOne(DBObject("_id" -> new ObjectId(id))) match {
+      facebookApiAccountCollection.findOne(Document("_id" -> new org.bson.types.ObjectId(id))) match {
         case Some(account_obj) =>
-          val apiAccount = dboToApiAccount(account_obj)
+          val apiAccount = documentToApiAccount(account_obj)
           Future(Ok(views.html.facebook.api_account.edit_api_account(
             id,
             facebookApiAccountForm.fill(
@@ -78,7 +80,7 @@ class ApiAccountController @Inject()(val messagesApi: MessagesApi, deadbolt: Dea
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.FACEBOOK,
               changeCategory = ChangeCategory.API_ACCOUNT,
-              changeData = apiAccountToDBO(api_account)
+              changeData = apiAccountToDocument(api_account)
             )
           )
           Future(Redirect(controllers.facebook.api_account.routes.ApiAccountController.api_accounts()))
@@ -106,7 +108,7 @@ class ApiAccountController @Inject()(val messagesApi: MessagesApi, deadbolt: Dea
                 changeType = ChangeType.UPDATE,
                 trafficSource = TrafficSource.FACEBOOK,
                 changeCategory = ChangeCategory.API_ACCOUNT,
-                changeData = apiAccountToDBO(api_account)
+                changeData = apiAccountToDocument(api_account)
               )
             )
             Future(Redirect(controllers.facebook.api_account.routes.ApiAccountController.api_accounts()))
@@ -122,7 +124,7 @@ class ApiAccountController @Inject()(val messagesApi: MessagesApi, deadbolt: Dea
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.FACEBOOK,
           changeCategory = ChangeCategory.API_ACCOUNT,
-          changeData = DBObject("apiId" -> id)
+          changeData = Document("apiId" -> id)
         )
       )
       Future(Redirect(controllers.facebook.api_account.routes.ApiAccountController.api_accounts()))
@@ -149,7 +151,7 @@ class ApiAccountController @Inject()(val messagesApi: MessagesApi, deadbolt: Dea
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.FACEBOOK,
                     changeCategory = ChangeCategory.API_ACCOUNT,
-                    changeData = apiAccountToDBO(api_account)
+                    changeData = apiAccountToDocument(api_account)
                   )
                 )
               }

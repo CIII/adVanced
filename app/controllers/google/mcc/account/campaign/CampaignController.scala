@@ -5,15 +5,15 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.google.api.ads.adwords.axis.v201609.cm.{Budget, Campaign}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.google.mcc.account.BudgetControllerHelper._
 import helpers.google.mcc.account.campaign.CampaignControllerHelper._
 import models.mongodb._
+import models.mongodb.MongoExtensions._
 import models.mongodb.google.Google._
 import models.mongodb.google.GoogleCampaignPerformance
-import play.api.cache.CacheApi
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import security.HandlerKeys
 import util.charts.ChartMetaData._
@@ -25,19 +25,16 @@ import util.charts.performance.GooglePerformanceCharts._
 
 import scala.collection.immutable.List
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import models.mongodb.google.GooglePerformance
 import models.mongodb.performance.PerformanceEntityFilter
 
 class CampaignController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
-  actionBuilder: ActionBuilders,
-  cache: CacheApi
-) extends Controller with I18nSupport {
+  actionBuilder: ActionBuilders
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
 
   def json = Action.async {
     implicit request =>
@@ -51,7 +48,7 @@ class CampaignController @Inject()(
           "campaignApiId"
         ),
         "campaign",
-        googleCampaignCollection
+        googleCampaignCollection.namespace.getCollectionName
       )))
   }
 
@@ -60,9 +57,9 @@ class CampaignController @Inject()(
       Future(Ok(views.html.google.mcc.account.campaign.campaign_attribution(
         new GoogleCampaignPerformanceChart(
           getMetaData(
-            request, 
-            List(GoogleCampaignPerformance.campaignHtmlField, 
-                GoogleCampaignPerformance.campaignBudgetEditHtmlField, 
+            request,
+            List(GoogleCampaignPerformance.campaignHtmlField,
+                GoogleCampaignPerformance.campaignBudgetEditHtmlField,
                 GoogleCampaignPerformance.campaignStateField,
                 GooglePerformance.impField,
                 GooglePerformance.ctrField,
@@ -70,7 +67,7 @@ class CampaignController @Inject()(
                 GooglePerformance.cpmField,
                 GooglePerformance.costPerConvField),
             request.getQueryString("filterById") match {
-              case Some(account) => 
+              case Some(account) =>
                 List(new PerformanceEntityFilter(GooglePerformance.accountField, "eq", List(account)))
               case _ => List()
             },
@@ -79,16 +76,16 @@ class CampaignController @Inject()(
         )
       )))
   }
-  
+
   def attributionCSV = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
       Future.successful(Ok.sendFile(
         new GoogleCampaignPerformanceChart(
           getMetaData(
-            request, 
+            request,
             List(GoogleCampaignPerformance.campaignHtmlField, GoogleCampaignPerformance.campaignBudgetEditHtmlField),
             request.getQueryString("filterById") match {
-              case Some(account) => 
+              case Some(account) =>
                 List(new PerformanceEntityFilter(GooglePerformance.accountField, "eq", List(account)))
               case _ => List()
             },
@@ -97,9 +94,11 @@ class CampaignController @Inject()(
         ).exportCsv("CampaignAttribution.csv")
       ))
   }
-  
+
   def campaigns(page: Int, pageSize: Int, orderBy: Int, filter: String) = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+      val campaignDocs = googleCampaignCollection.find().skip(page * pageSize).limit(pageSize).toList
       Future(Ok(views.html.google.mcc.account.campaign.campaigns(
         new ClientChart(
           List(
@@ -108,7 +107,7 @@ class CampaignController @Inject()(
             new ChartColumn("status", "", "Status", string, dimension),
             new ActionColumn((rowValues: List[Any]) => "/google/mcc/account/campaign/%s/".format(rowValues.head.toString))
           ),
-          googleCampaignCollection.find().skip(page * pageSize).limit(pageSize).toList.map(dboToGoogleEntity[Campaign](_, "campaign", None))
+          campaignDocs
         ),
         pendingCache(Left(request))
           .filter(
@@ -120,13 +119,15 @@ class CampaignController @Inject()(
 
   def newCampaign = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      val pending_cache_key = request.session.get(Security.username).get + cache_ext
+      // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Budget] with Document-based access
+      val budgetDocs = googleBudgetCollection.find().toList
       Future(Ok(views.html.google.mcc.account.campaign.new_campaign(
         campaignForm,
-        googleBudgetCollection.find().toList.map(dboToGoogleEntity[Budget](_, "budget", None)),
-        Await.result(Shared.Shared.redisClient.lrange[PendingCacheStructure](pending_cache_key, 0, -1), 5 seconds).toList
+        budgetDocs,
+        // TODO: Migrate to RedisService injection - redisClient.lrange replaced with session cache
+        pendingCache(Left(request))
           .filter(x => x.changeType == ChangeType.NEW && x.trafficSource == TrafficSource.GOOGLE && x.changeCategory == ChangeCategory.BUDGET)
-          .map(x => dboToBudgetForm(x.changeData.asDBObject)),
+          .map(x => documentToBudgetForm(x.changeData)),
         List()
       )))
   }
@@ -135,12 +136,14 @@ class CampaignController @Inject()(
     implicit request =>
       campaignForm.bindFromRequest.fold(
         formWithErrors => {
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Budget] with Document-based access
+          val budgetDocs = googleBudgetCollection.find().toList
           Future(BadRequest(views.html.google.mcc.account.campaign.new_campaign(
             formWithErrors,
-            googleBudgetCollection.find().toList.map(dboToGoogleEntity[Budget](_, "budget", None)),
+            budgetDocs,
             pendingCache(Left(request))
               .filter(x => x.changeType == ChangeType.NEW && x.trafficSource == TrafficSource.GOOGLE && x.changeCategory == ChangeCategory.BUDGET)
-              .map(x => dboToBudgetForm(x.changeData.asDBObject)),
+              .map(x => documentToBudgetForm(x.changeData)),
             List()
           )))
         },
@@ -152,7 +155,7 @@ class CampaignController @Inject()(
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.CAMPAIGN,
-              changeData = campaignFormToDbo(campaign)
+              changeData = campaignFormToDocument(campaign)
             )
           )
           Future(Redirect(controllers.google.mcc.account.campaign.routes.CampaignController.campaigns()))
@@ -180,7 +183,7 @@ class CampaignController @Inject()(
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.GOOGLE,
                     changeCategory = ChangeCategory.CAMPAIGN,
-                    changeData = campaignFormToDbo(campaign)
+                    changeData = campaignFormToDocument(campaign)
                   )
                 )
             )
@@ -188,12 +191,14 @@ class CampaignController @Inject()(
         }
       }
       if (error_list.nonEmpty) {
+        // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Budget] with Document-based access
+        val budgetDocs = googleCustomerCollection.find().toList
         Future(BadRequest(views.html.google.mcc.account.campaign.new_campaign(
           campaignForm,
-          googleCustomerCollection.find().toList.map(dboToGoogleEntity[Budget](_, "budget", None)),
+          budgetDocs,
           pendingCache(Left(request))
             .filter(x => x.changeType == ChangeType.NEW && x.trafficSource == TrafficSource.GOOGLE && x.changeCategory == ChangeCategory.BUDGET)
-            .map(x => dboToBudgetForm(x.changeData.asDBObject)),
+            .map(x => documentToBudgetForm(x.changeData)),
           error_list.toList
         )))
       } else {
@@ -203,52 +208,62 @@ class CampaignController @Inject()(
 
   def editCampaign(api_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      googleCampaignCollection.findOne(DBObject("apiId" -> api_id)) match {
-        case None => Future(Redirect(controllers.routes.DashboardController.dashboard()))
+      googleCampaignCollection.findOne(Document("apiId" -> api_id)) match {
+        case None => Future(Redirect(controllers.routes.DashboardController.dashboard))
         case Some(campaign_obj) =>
-          val campaign = dboToGoogleEntity[Campaign](campaign_obj, "campaign", None)
-          val budgets = googleBudgetCollection.find(DBObject("customerApiId" -> campaign_obj.getAsOrElse[Option[Long]]("customerApiId", None))).toList
-          
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Campaign] with Document-based access
+          val campaignDoc = Option(campaign_obj.toBsonDocument.get("campaign")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
+          val budgets = googleBudgetCollection.find(Document("customerApiId" -> Option(campaign_obj.getLong("customerApiId")).map(_.toLong))).toList
+
+          val campaignId = campaignDoc.flatMap(d => Option(d.getLong("id")).map(_.toLong)).getOrElse(0L)
           Future(Ok(views.html.google.mcc.account.campaign.edit_campaign(
-            campaign.getId,
+            campaignId,
             campaignForm.fill(
               CampaignForm(
                 CampaignParent(
-                  mccObjId = campaign_obj.getAsOrElse[Option[String]]("mccObjId", None),
-                  customerApiId = campaign_obj.getAsOrElse[Option[Long]]("customerApiId", None)
+                  mccObjId = Option(campaign_obj.getString("mccObjId")),
+                  customerApiId = Option(campaign_obj.getLong("customerApiId")).map(_.toLong)
                 ),
-                apiId = Some(campaign.getId),
-                name = campaign.getName,
-                status = Some(campaign.getStatus.toString),
-                servingStatus = Some(campaign.getServingStatus.toString),
-                startDate = Some(campaign.getStartDate),
-                endDate = Some(campaign.getEndDate),
-                budgetAmount = Some(microToDollars(campaign.getBudget.getAmount.getMicroAmount).toInt),
-                isSharedBudget = Some(campaign.getBudget.getIsExplicitlyShared),
-                advertisingChannelType = Some(campaign.getAdvertisingChannelType.toString),
-                adServingOptimizationStatus = Some(campaign.getAdServingOptimizationStatus.toString),
-                frequencyCapImpressions = try {
-                  Option(campaign.getFrequencyCap.getImpressions)
-                } catch {
-                  case _ => None
-                },
-                frequencyCapTimeUnit = try {
-                  Option(campaign.getFrequencyCap.getTimeUnit.toString)
-                } catch {
-                  case _ => None
-                },
-                frequencyCapLevel = try {
-                  Option(campaign.getFrequencyCap.getLevel.toString)
-                } catch {
-                  case _ => None
-                },
-                targetGoogleSearch = Some(campaign.getNetworkSetting.getTargetGoogleSearch),
-                targetSearchNetwork = Some(campaign.getNetworkSetting.getTargetSearchNetwork),
-                targetContentNetwork = Some(campaign.getNetworkSetting.getTargetContentNetwork),
-                targetPartnerSearchNetwork = Some(campaign.getNetworkSetting.getTargetPartnerSearchNetwork)
+                apiId = Some(campaignId),
+                name = campaignDoc.map(_.getString("name")).getOrElse(""),
+                status = campaignDoc.map(d => Option(d.getString("status")).getOrElse("ENABLED")),
+                servingStatus = campaignDoc.map(d => Option(d.getString("servingStatus")).getOrElse("SERVING")),
+                startDate = campaignDoc.flatMap(d => Option(d.getString("startDate"))),
+                endDate = campaignDoc.flatMap(d => Option(d.getString("endDate"))),
+                budgetAmount = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("budget")).map(v => Document(v.asDocument())).flatMap(b => Option(b.toBsonDocument.get("amount")).map(v => Document(v.asDocument()))).flatMap(a =>
+                    Option(a.getLong("microAmount")).map(m => microToDollars(m.toLong).toInt)
+                  )
+                ),
+                isSharedBudget = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("budget")).map(v => Document(v.asDocument())).flatMap(b => Option(b.getBoolean("isExplicitlyShared")).map(_.booleanValue()))
+                ),
+                advertisingChannelType = campaignDoc.flatMap(d => Option(d.getString("advertisingChannelType"))),
+                adServingOptimizationStatus = campaignDoc.flatMap(d => Option(d.getString("adServingOptimizationStatus"))),
+                frequencyCapImpressions = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("frequencyCap")).map(v => Document(v.asDocument())).flatMap(fc => Option(fc.getInteger("impressions")).map(_.toInt))
+                ),
+                frequencyCapTimeUnit = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("frequencyCap")).map(v => Document(v.asDocument())).flatMap(fc => Option(fc.getString("timeUnit")))
+                ),
+                frequencyCapLevel = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("frequencyCap")).map(v => Document(v.asDocument())).flatMap(fc => Option(fc.getString("level")))
+                ),
+                targetGoogleSearch = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("networkSetting")).map(v => Document(v.asDocument())).flatMap(ns => Option(ns.getBoolean("targetGoogleSearch")).map(_.booleanValue()))
+                ),
+                targetSearchNetwork = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("networkSetting")).map(v => Document(v.asDocument())).flatMap(ns => Option(ns.getBoolean("targetSearchNetwork")).map(_.booleanValue()))
+                ),
+                targetContentNetwork = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("networkSetting")).map(v => Document(v.asDocument())).flatMap(ns => Option(ns.getBoolean("targetContentNetwork")).map(_.booleanValue()))
+                ),
+                targetPartnerSearchNetwork = campaignDoc.flatMap(d =>
+                  Option(d.toBsonDocument.get("networkSetting")).map(v => Document(v.asDocument())).flatMap(ns => Option(ns.getBoolean("targetPartnerSearchNetwork")).map(_.booleanValue()))
+                )
               )
             ),
-            budgets.map(dboToGoogleEntity[Budget](_, "budget", None))
+            budgets
           )))
       }
   }
@@ -258,10 +273,12 @@ class CampaignController @Inject()(
     implicit request =>
       campaignForm.bindFromRequest.fold(
         formWithErrors => {
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[Budget] with Document-based access
+          val budgetDocs = googleBudgetCollection.find().toList
           Future(BadRequest(views.html.google.mcc.account.campaign.edit_campaign(
             api_id,
             formWithErrors,
-            googleBudgetCollection.find().toList.map(dboToGoogleEntity[Budget](_, "budget", None))
+            budgetDocs
           )))
         },
         campaign => {
@@ -272,7 +289,7 @@ class CampaignController @Inject()(
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.CAMPAIGN,
-              changeData = campaignFormToDbo(campaign)
+              changeData = campaignFormToDocument(campaign)
             )
           )
           Future(Redirect(controllers.google.mcc.account.campaign.routes.CampaignController.campaigns()))
@@ -289,7 +306,7 @@ class CampaignController @Inject()(
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.GOOGLE,
           changeCategory = ChangeCategory.CAMPAIGN,
-          changeData = DBObject("apiId" -> api_id)
+          changeData = Document("apiId" -> api_id)
         )
       )
       Future(Redirect(controllers.google.mcc.account.campaign.routes.CampaignController.campaigns()))

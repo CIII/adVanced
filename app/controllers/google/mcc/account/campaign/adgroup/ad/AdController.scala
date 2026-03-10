@@ -1,16 +1,15 @@
 package controllers.google.mcc.account.campaign.adgroup.ad
 
 import javax.inject.Inject
-import play.api.i18n.MessagesApi
 import be.objectify.deadbolt.scala.DeadboltActions
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.ActionBuilders
-import play.api.mvc.Controller
+import play.api.mvc._
 import play.api.i18n.I18nSupport
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import models.mongodb._
 import security.HandlerKeys
-import scala.concurrent.ExecutionContext.Implicits.global
 import util.charts.performance.GooglePerformanceCharts._
 import util.charts.ChartMetaData.getMetaData
 import models.mongodb.google.GoogleAdPerformance
@@ -19,11 +18,11 @@ import models.mongodb.google.GoogleAdGroupPerformance
 import models.mongodb.performance.PerformanceEntityFilter
 
 class AdController @Inject()(
-  val messagesApi: MessagesApi,  
-  deadbolt: DeadboltActions,  
-  handlers: HandlerCache,  
+  val controllerComponents: ControllerComponents,
+  deadbolt: DeadboltActions,
+  handlers: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
   
   def attribution = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>

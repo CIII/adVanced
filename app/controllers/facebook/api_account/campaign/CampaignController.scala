@@ -5,30 +5,30 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.facebook.ads.sdk.Campaign
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.facebook.api_account.campaign.CampaignControllerHelper._
+import models.mongodb.MongoExtensions._
+import models.mongodb.PermissionGroup
+import models.mongodb.Utilities
 import models.mongodb.facebook.Facebook._
 import org.bson.types.ObjectId
 import org.joda.time.DateTime
-import play.api.i18n.{I18nSupport, MessagesApi}
-import play.api.mvc.{Action, Controller}
+import play.api.i18n.I18nSupport
+import play.api.mvc._
 import security.HandlerKeys
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable.List
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 class CampaignController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
-  actionBuilder: ActionBuilders,
-  cache: CacheApi
-) extends Controller with I18nSupport {
+  actionBuilder: ActionBuilders
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
   def json = Action.async {
     implicit request =>
       Future(Ok(controllers.json(
@@ -54,7 +54,7 @@ class CampaignController @Inject()(
           "updated_time"
         ),
         "campaign",
-        facebookCampaignCollection
+        facebookCampaignCollection.namespace.getCollectionName
       )))
   }
 
@@ -62,15 +62,13 @@ class CampaignController @Inject()(
     implicit request =>
       val campaigns = facebookCampaignCollection.find().skip(page * pageSize).limit(pageSize).toList
       Future(Ok(views.html.facebook.api_account.campaign.campaigns(
-        campaigns.map(dboToFacebookEntity[Campaign](_, "campaign", None)),
+        campaigns.map(documentToFacebookEntity(_, "campaign", None)),
         page,
         pageSize,
         orderBy,
         filter,
-        facebookCampaignCollection.count(),
-        cache.get(pendingCacheKey(Left(request)))
-          .getOrElse(List())
-          .asInstanceOf[List[PendingCacheStructure]]
+        facebookCampaignCollection.countSync().toInt,
+        pendingCache(Left(request))
           .filter(x => x.trafficSource == TrafficSource.FACEBOOK && x.changeCategory == ChangeCategory.CAMPAIGN)
       )))
   }
@@ -85,39 +83,36 @@ class CampaignController @Inject()(
 
   def editCampaign(api_id: String) = deadbolt.Dynamic(name = PermissionGroup.FacebookWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      facebookCampaignCollection.findOne(DBObject("apiId" -> api_id)) match {
+      facebookCampaignCollection.findOne(Document("apiId" -> api_id)) match {
         case Some(campaignObj) =>
-          def campaign = dboToFacebookEntity[Campaign](campaignObj, "campaign", None)
+          val campaign = documentToFacebookEntity(campaignObj, "campaign", None)
           Future(Ok(views.html.facebook.api_account.campaign.edit_campaign(
             api_id,
             campaignForm.fill(
               CampaignForm(
-                apiId = Some(campaign.getId),
-                name = campaign.getFieldName,
-                objective = Some(campaign.getFieldObjective),
-                accountId = campaign.getFieldAccountId,
+                apiId = Option(campaign.getString("id")),
+                name = Option(campaign.getString("name")).getOrElse(""),
+                objective = Option(campaign.getString("objective")),
+                accountId = Option(campaign.getString("account_id")).getOrElse(""),
                 adLabels = Some(List()),
-                budgetRebalanceFlag = campaign.getFieldBudgetRebalanceFlag,
-                buyingType = campaign.getFieldBuyingType,
-                canUseSpendCap = campaign.getFieldCanUseSpendCap,
-                configuredStatus = campaign.getFieldConfiguredStatus.toString,
-                createdTime = Some(campaign.getFieldCreatedTime),
-                effectiveStatus = campaign.getFieldEffectiveStatus.toString,
-                spendCap = Some(campaign.getFieldSpendCap),
-                startTime = campaign.getFieldStartTime match {
-                  case _ if campaign.getFieldStartTime != null =>
-                    Some(DateTime.parse(campaign.getFieldStartTime))
+                budgetRebalanceFlag = Option(campaign.getBoolean("budget_rebalance_flag")).exists(_.booleanValue()),
+                buyingType = Option(campaign.getString("buying_type")).getOrElse(""),
+                canUseSpendCap = Option(campaign.getBoolean("can_use_spend_cap")).exists(_.booleanValue()),
+                configuredStatus = Option(campaign.getString("configured_status")).getOrElse(""),
+                createdTime = Option(campaign.getString("created_time")),
+                effectiveStatus = Option(campaign.getString("effective_status")).getOrElse(""),
+                spendCap = Option(campaign.getLong("spend_cap")).map(_.toLong),
+                startTime = Option(campaign.getString("start_time")).flatMap {
+                  case s if s != null && s.nonEmpty => Some(DateTime.parse(s))
                   case _ => None
                 },
-                status = Some(campaign.getFieldStatus.toString),
-                stopTime = campaign.getFieldStopTime match {
-                  case _ if campaign.getFieldStopTime != null =>
-                    Some(DateTime.parse(campaign.getFieldStopTime))
+                status = Option(campaign.getString("status")),
+                stopTime = Option(campaign.getString("stop_time")).flatMap {
+                  case s if s != null && s.nonEmpty => Some(DateTime.parse(s))
                   case _ => None
                 },
-                updatedTime = campaign.getFieldUpdatedTime match {
-                  case _ if campaign.getFieldUpdatedTime != null =>
-                    Some(DateTime.parse(campaign.getFieldUpdatedTime))
+                updatedTime = Option(campaign.getString("updated_time")).flatMap {
+                  case s if s != null && s.nonEmpty => Some(DateTime.parse(s))
                   case _ => None
                 }
               )
@@ -130,7 +125,6 @@ class CampaignController @Inject()(
 
   def createCampaign = deadbolt.Dynamic(name = PermissionGroup.FacebookWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      val current_cache = Await.result(Shared.Shared.redisClient.lrange[PendingCacheStructure](pendingCacheKey(Left(request)), 0, -1), 5 seconds).toList
       campaignForm.bindFromRequest.fold(
         formWithErrors => {
           Future(BadRequest(
@@ -141,15 +135,16 @@ class CampaignController @Inject()(
           ))
         },
         campaign => {
-          Shared.Shared.redisClient.lpush(
-            pendingCacheKey(Left(request)),
-            current_cache :+ PendingCacheStructure(
-              id = current_cache.length + 1,
+          // TODO: Migrate to RedisService injection - redisClient.lpush removed
+          setPendingCache(
+            Left(request),
+            pendingCache(Left(request)) :+ PendingCacheStructure(
+              id = pendingCache(Left(request)).length + 1,
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.FACEBOOK,
               changeCategory = ChangeCategory.CAMPAIGN,
-              changeData = campaignFormToDbo(campaign)
-            ): _*
+              changeData = campaignFormToDocument(campaign)
+            )
           )
           Future(Redirect(controllers.facebook.api_account.campaign.routes.CampaignController.campaigns()))
         }
@@ -161,7 +156,7 @@ class CampaignController @Inject()(
       var error_list = new ListBuffer[String]()
       request.body.file("bulk").foreach {
         bulk => {
-          val field_names = Utilities.getCaseClassParameter[Campaign]
+          val field_names = Utilities.getCaseClassParameter[CampaignForm]
           val campaign_data_list = Utilities.bulkImport(bulk, field_names)
           for (((campaign_data, action), index) <- campaign_data_list.zipWithIndex) {
             campaignForm.bind(campaign_data.map(kv => (kv._1, kv._2)).toMap).fold(
@@ -176,7 +171,7 @@ class CampaignController @Inject()(
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.FACEBOOK,
                     changeCategory = ChangeCategory.CAMPAIGN,
-                    changeData = campaignFormToDbo(campaign)
+                    changeData = campaignFormToDocument(campaign)
                   )
                 )
               }
@@ -215,7 +210,7 @@ class CampaignController @Inject()(
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.FACEBOOK,
               changeCategory = ChangeCategory.CAMPAIGN,
-              changeData = campaignFormToDbo(campaign)
+              changeData = campaignFormToDocument(campaign)
             )
           )
           Future(Redirect(controllers.facebook.api_account.campaign.routes.CampaignController.campaigns()))
@@ -233,7 +228,7 @@ class CampaignController @Inject()(
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.FACEBOOK,
           changeCategory = ChangeCategory.CAMPAIGN,
-          changeData = DBObject("apiId" -> api_id)
+          changeData = Document("apiId" -> api_id)
         )
       )
       Future(Redirect(controllers.facebook.api_account.campaign.routes.CampaignController.campaigns()))

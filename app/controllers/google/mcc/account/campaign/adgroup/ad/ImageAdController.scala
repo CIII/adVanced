@@ -5,15 +5,16 @@ import javax.inject.Inject
 import Shared.Shared._
 import be.objectify.deadbolt.scala.cache.HandlerCache
 import be.objectify.deadbolt.scala.{ActionBuilders, DeadboltActions}
-import com.google.api.ads.adwords.axis.v201609.cm.{AdGroupAd, ImageAd}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import helpers.google.mcc.account.campaign.adgroup.ad.ImageAdControllerHelper._
 import models.mongodb._
+import models.mongodb.MongoExtensions._
 import models.mongodb.google.Google._
-import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.i18n.I18nSupport
 import play.api.mvc._
 import security.HandlerKeys
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import util.charts._
 import util.charts.client.ChartColumn.ColumnDataType._
 import util.charts.client.ChartColumn.ColumnType._
@@ -25,11 +26,11 @@ import util.charts.client.ActionColumn
 import util.charts.client.ChartColumn
 
 class ImageAdController @Inject()(
-  val messagesApi: MessagesApi,
+  val controllerComponents: ControllerComponents,
   deadbolt: DeadboltActions,
   handlers: HandlerCache,
   actionBuilder: ActionBuilders
-) extends Controller with I18nSupport {
+)(implicit ec: ExecutionContext) extends BaseController with I18nSupport {
   def json = Action.async {
     implicit request =>
       Future(Ok(controllers.json(
@@ -46,13 +47,14 @@ class ImageAdController @Inject()(
           "adApiId"
         ),
         "ad",
-        googleAdCollection,
+        googleAdCollection.namespace.getCollectionName,
         Some("adType" -> "ImageAd")
       )))
   }
 
   def imageAds = deadbolt.Dynamic(name = PermissionGroup.GoogleRead.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
+      // TODO: Migrate to Google Ads API v18 - replaced AdGroupAd/ImageAd deserialization with Document-based access
       Future(Ok(views.html.google.mcc.account.campaign.adgroup.ad.image.image_ads(
         new ClientChart(
           List(
@@ -62,18 +64,17 @@ class ImageAdController @Inject()(
             new ChartColumn("image", "", "Image", string, dimension),
             new ActionColumn((rowValues: List[Any]) => "/google/mcc/account/campaign/adgroup/ad/image/%s/".format(rowValues(0).toString))
           ),
-          googleAdCollection.find(DBObject("adType" -> "ImageAd")).toList.map(
+          googleAdCollection.find(Document("adType" -> "ImageAd")).toList.map(
             y => {
-              var imageAd: AdGroupAd = gson.fromJson(
-                com.mongodb.util.JSON.serialize(y.as[MongoDBList]("ad").head.asInstanceOf[DBObject].as[DBObject]("object")),
-                classOf[AdGroupAd]
-              )
-              
+              val adDoc = Option(y.toBsonDocument.get("ad")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
+              val innerAdDoc = adDoc.flatMap(d => Option(d.toBsonDocument.get("ad")).map(v => Document(v.asDocument())))
+              val imageDoc = innerAdDoc.flatMap(d => Option(d.toBsonDocument.get("image")).map(v => Document(v.asDocument())))
+
               ImageAdChartItem(
-                apiId = imageAd.getAd.getId,
-                url = imageAd.getAd.getUrl,
-                status = imageAd.getStatus.toString,
-                image = getImageHtml(Option(imageAd.getAd.asInstanceOf[ImageAd].getImage.getData ))
+                apiId = innerAdDoc.flatMap(d => Option(d.getLong("id")).map(_.toLong)).getOrElse(0L),
+                url = innerAdDoc.flatMap(d => Option(d.getString("url"))).getOrElse(""),
+                status = adDoc.flatMap(d => Option(d.getString("status"))).getOrElse("UNKNOWN"),
+                image = getImageHtml(imageDoc.flatMap(d => Option(d.getString("data"))).map(_.getBytes("UTF-8")))
               )
             }
           )
@@ -96,30 +97,34 @@ class ImageAdController @Inject()(
 
   def editImageAd(api_id: Long) = deadbolt.Dynamic(name = PermissionGroup.GoogleWrite.entryName, handler = handlers(HandlerKeys.defaultHandler))() {
     implicit request =>
-      googleAdCollection.findOne(DBObject("apiId" -> api_id)) match {
+      googleAdCollection.findOne(Document("apiId" -> api_id)) match {
         case Some(image_ad_obj) =>
-          val image_ad = dboToGoogleEntity[AdGroupAd](image_ad_obj, "ad", None)
+          // TODO: Migrate to Google Ads API v18 - replaced documentToGoogleEntity[AdGroupAd] with Document-based access
+          val adDoc = Option(image_ad_obj.toBsonDocument.get("ad")).map(v => Document(v.asDocument())).flatMap(d => Option(d.toBsonDocument.get("object")).map(v => Document(v.asDocument())))
+          val innerAdDoc = adDoc.flatMap(d => Option(d.toBsonDocument.get("ad")).map(v => Document(v.asDocument())))
+          val imageDoc = innerAdDoc.flatMap(d => Option(d.toBsonDocument.get("image")).map(v => Document(v.asDocument())))
+          val adId = innerAdDoc.flatMap(d => Option(d.getLong("id")).map(_.toLong)).getOrElse(0L)
           Future(Ok(views.html.google.mcc.account.campaign.adgroup.ad.image.edit_image_ad(
-            image_ad.getAd.getId,
+            adId,
             imageAdForm.fill(
               ImageAdForm(
                 controllers.Google.AdGroupAdParent(
-                  mccObjId = image_ad_obj.getAsOrElse[Option[String]]("mccObjId", None),
-                  customerApiId = image_ad_obj.getAsOrElse[Option[Long]]("customerApiId", None),
-                  campaignApiId = image_ad_obj.getAsOrElse[Option[Long]]("campaignApiId", None),
-                  adGroupApiId = image_ad_obj.getAsOrElse[Option[Long]]("adGroupApiId", None)
+                  mccObjId = Option(image_ad_obj.getString("mccObjId")),
+                  customerApiId = Option(image_ad_obj.getLong("customerApiId")).map(_.toLong),
+                  campaignApiId = Option(image_ad_obj.getLong("campaignApiId")).map(_.toLong),
+                  adGroupApiId = Option(image_ad_obj.getLong("adGroupApiId")).map(_.toLong)
                 ),
-                apiId = Some(image_ad.getAd.getId),
-                url = Some(image_ad.getAd.getDisplayUrl),
-                displayUrl = Some(image_ad.getAd.getDisplayUrl),
-                devicePreference = Some(image_ad.getAd.getDevicePreference),
-                imageName = image_ad.getAd.asInstanceOf[ImageAd].getName,
-                imageFileSize = Some(image_ad.getAd.asInstanceOf[ImageAd].getImage.getFileSize),
-                imageData = Some(image_ad.getAd.asInstanceOf[ImageAd].getImage.getData),
-                status = Some(image_ad.getStatus.toString),
-                approvalStatus = Some(image_ad.getApprovalStatus.toString),
-                disapprovalReasons = Some(image_ad.getDisapprovalReasons.toList),
-                trademarkDisapproved = Some(image_ad.getTrademarkDisapproved)
+                apiId = Some(adId),
+                url = innerAdDoc.flatMap(d => Option(d.getString("displayUrl"))),
+                displayUrl = innerAdDoc.flatMap(d => Option(d.getString("displayUrl"))),
+                devicePreference = innerAdDoc.flatMap(d => Option(d.getLong("devicePreference")).map(_.toLong)),
+                imageName = innerAdDoc.flatMap(d => Option(d.getString("name"))).getOrElse(""),
+                imageFileSize = imageDoc.flatMap(d => Option(d.getLong("fileSize")).map(_.toLong)),
+                imageData = imageDoc.flatMap(d => Option(d.getString("data"))).map(_.getBytes("UTF-8")),
+                status = adDoc.flatMap(d => Option(d.getString("status"))),
+                approvalStatus = adDoc.flatMap(d => Option(d.getString("approvalStatus"))),
+                disapprovalReasons = adDoc.flatMap(d => Option(d.getString("disapprovalReasons")).map(r => r.split(",").toList)),
+                trademarkDisapproved = adDoc.flatMap(d => Option(d.getBoolean("trademarkDisapproved")).map(_.booleanValue()))
               )
             )
           )))
@@ -162,10 +167,10 @@ class ImageAdController @Inject()(
               changeType = ChangeType.NEW,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.IMAGE_AD,
-              changeData = imageAdFormToDbo(image_ad)
+              changeData = imageAdFormToDocument(image_ad)
             )
           )
-          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.imageAds()))
+          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.imageAds))
         }
       )
   }
@@ -191,7 +196,7 @@ class ImageAdController @Inject()(
                     changeType = ChangeType.withName(action.toUpperCase),
                     trafficSource = TrafficSource.GOOGLE,
                     changeCategory = ChangeCategory.IMAGE_AD,
-                    changeData = imageAdFormToDbo(image_ad)
+                    changeData = imageAdFormToDocument(image_ad)
                   )
                 )
             )
@@ -204,7 +209,7 @@ class ImageAdController @Inject()(
           error_list.toList
         )))
       } else {
-        Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.imageAds()))
+        Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.imageAds))
       }
   }
 
@@ -228,10 +233,10 @@ class ImageAdController @Inject()(
               changeType = ChangeType.UPDATE,
               trafficSource = TrafficSource.GOOGLE,
               changeCategory = ChangeCategory.IMAGE_AD,
-              changeData = imageAdFormToDbo(image_ad)
+              changeData = imageAdFormToDocument(image_ad)
             )
           )
-          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.imageAds()))
+          Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.imageAds))
         }
       )
   }
@@ -246,11 +251,9 @@ class ImageAdController @Inject()(
           changeType = ChangeType.DELETE,
           trafficSource = TrafficSource.GOOGLE,
           changeCategory = ChangeCategory.IMAGE_AD,
-          changeData = DBObject("apiId" -> api_id)
+          changeData = Document("apiId" -> api_id)
         )
       )
-      Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.imageAds()))
+      Future(Redirect(controllers.google.mcc.account.campaign.adgroup.ad.routes.ImageAdController.imageAds))
   }
 }
-
-
