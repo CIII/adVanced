@@ -7,7 +7,7 @@
     cached_image_ad_changes: List[Shared.Shared.PendingCacheStructure]
 )(implicit request: AuthenticatedRequest[Any])
 
-@import com.google.api.ads.adwords.axis.v201609.cm.ImageAd
+@import org.mongodb.scala.bson.Document
 @import security._
 @import helper._
 @args(args: (Symbol, Any)*) = @{

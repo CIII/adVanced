@@ -13,7 +13,7 @@
             <!-- /.panel-heading -->
         <div class="panel-body">
             <div class="panel-group" id="accordian">
-                @for(category <- Shared.Shared.ChangeCategory.values) {
+                @for(category <- Shared.Shared.ChangeCategory.values.unsorted) {
                     @defining(pending_cache.count(_.changeCategory == category)) { category_count =>
                     @if(category_count > 0) {
                         <div class="panel panel-default">

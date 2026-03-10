@@ -52,7 +52,7 @@
                                             @data.changeCategory.toString - @data.changeType.toString
                                         </h5>
                                         <p>
-                                            @com.mongodb.util.JSON.serialize(data.changeData)
+                                            @data.changeData.toJson()
                                         </p>
                                     }
                                 </div>

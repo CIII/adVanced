@@ -4,7 +4,7 @@
 @import util.charts.client.ChartColumn.ColumnType._
 @import util.charts.client._
 @import util.charts.ChartWriter._
-@import Shared.Shared.gson
+@import play.api.libs.json.Json
 @(
     chartName: String, 
     chart: util.charts.ClientChart
@@ -61,7 +61,7 @@ function buildData() {
         dataTable.addColumn('@column.dataType', '@column.header');
     }
 
-    dataTable.addRows(@{Html(gson.toJson(chart.getData))}.data);
+    dataTable.addRows(@{Html(Json.toJson(chart.getData).toString())}.data);
     return dataTable;
 }
 

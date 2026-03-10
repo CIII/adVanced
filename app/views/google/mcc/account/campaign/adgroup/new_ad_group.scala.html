@@ -1,14 +1,14 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
     ad_group_form: Form[helpers.google.mcc.account.campaign.adgroup.AdGroupControllerHelper.AdGroupForm],
-    campaign_list: List[com.google.api.ads.adwords.axis.v201609.cm.Campaign],
+    campaign_list: List[Document],
     cached_campaign_list: List[helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignForm],
     bulk_import_errors: List[String]
 )(implicit request: AuthenticatedRequest[Any], messages: Messages)
 
-@import com.google.api.ads.adwords.axis.v201609.cm._
 @import helper._
     @args(args: (Symbol, Any)*) = @{
         args
@@ -28,7 +28,7 @@
                     <div class="form-group has-warning">
                     @select(
                         ad_group_form("status"),
-                        options("" :: List[String](AdGroupStatus._ENABLED, AdGroupStatus._REMOVED, AdGroupStatus._PAUSED)),
+                        options("" :: List[String]("ENABLED", "REMOVED", "PAUSED")),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Set Status",
@@ -41,7 +41,7 @@
                     <div class="form-group">
                         @select(
                             ad_group_form("content_bid_criterion_type_group"),
-                            options("" :: List[String](CriterionTypeGroup._NONE, CriterionTypeGroup._UNKNOWN, CriterionTypeGroup._KEYWORD)),
+                            options("" :: List[String]("NONE", "UNKNOWN", "KEYWORD")),
                             args(
                                 'class -> "chosen-select form-control",
                                 Symbol("data-placeholder") -> "Set Content Bid Criterion Type Group",
@@ -54,7 +54,7 @@
                     <div class="form-group has-warning">
                         @select(
                             ad_group_form("campaign"),
-                            options("" :: cached_campaign_list.map(_.name + " - Pending").toList ::: campaign_list.map(_.getName).toList),
+                            options("" :: cached_campaign_list.map(_.name + " - Pending").toList ::: campaign_list.map(_.getString("name")).toList),
                             args(
                                 'class -> "chosen-select form-control",
                                 Symbol("data-placeholder") -> "Campaign",

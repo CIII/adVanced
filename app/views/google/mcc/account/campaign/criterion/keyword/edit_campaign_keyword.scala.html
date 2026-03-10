@@ -2,14 +2,14 @@
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
 @import helpers.google.mcc.account.campaign.criterion.CampaignKeywordControllerHelper
+@import org.mongodb.scala.bson.Document
 @(
     campaign_keyword_id: Long,
     campaign_keyword_form: Form[CampaignKeywordControllerHelper.CampaignKeywordForm],
-    campaign_list: List[com.google.api.ads.adwords.axis.v201609.cm.Campaign],
+    campaign_list: List[Document],
     cached_campaign_list: List[helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignForm]
 )(implicit request: AuthenticatedRequest[Any], messages: Messages)
 
-@import com.google.api.ads.adwords.axis.v201609.cm._
 @import helper._
     @args(args: (Symbol, Any)*) = @{
         args
@@ -29,7 +29,7 @@
                     <div class="form-group has-warning">
                     @select(
                         campaign_keyword_form("matchType"),
-                        options("" :: List(KeywordMatchType._BROAD, KeywordMatchType._EXACT, KeywordMatchType._PHRASE)),
+                        options("" :: List("BROAD", "EXACT", "PHRASE")),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Set Match Type",
@@ -45,7 +45,7 @@
                     <div class="form-group">
                     @select(
                         campaign_keyword_form("status"),
-                        options("" :: List(UserStatus._ENABLED, UserStatus._PAUSED, UserStatus._REMOVED)),
+                        options("" :: List("ENABLED", "PAUSED", "REMOVED")),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Set Status",
@@ -58,7 +58,7 @@
                     <div class="form-group has-warning">
                     @select(
                         campaign_keyword_form("parent.campaignApiId"),
-                        options("" :: cached_campaign_list.map(_.name + " - Pending") ::: campaign_list.map(_.getName).toList),
+                        options("" :: cached_campaign_list.map(_.name + " - Pending") ::: campaign_list.map(_.getString("name")).toList),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Campaign",

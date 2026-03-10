@@ -3,7 +3,7 @@
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
 @import util.charts._
 @(
-    currentPageData: List[com.facebook.ads.sdk.Campaign],
+    currentPageData: List[org.mongodb.scala.bson.Document],
     currentPage: Int,
     currentPageSize: Int,
     currentOrderBy: Int,
@@ -63,9 +63,9 @@
                                 <tbody>
                                     @currentPageData.map { campaign =>
                                         <tr class="gradeA odd">
-                                            <td class=" ">@campaign.getFieldId</td>
-                                            <td class=" ">@campaign.getFieldName</td>
-                                            <td class=" ">@campaign.getFieldObjective</td>
+                                            <td class=" ">@campaign.getString("id")</td>
+                                            <td class=" ">@campaign.getString("name")</td>
+                                            <td class=" ">@campaign.getString("objective")</td>
                                         </tr>
                                     }
                                 </tbody>

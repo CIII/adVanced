@@ -1,8 +1,9 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
-        currentPageData: List[com.google.api.ads.adwords.axis.v201609.cm.AdGroupCriterion],
+        currentPageData: List[Document],
         currentPage: Int,
         currentPageSize: Int,
         currentOrderBy: Int,
@@ -11,7 +12,6 @@
         cached_keyword_changes: List[Shared.Shared.PendingCacheStructure]
 )(implicit request: AuthenticatedRequest[Any])
 
-@import com.google.api.ads.adwords.axis.v201609.cm.{BiddableAdGroupCriterion, Keyword, NegativeAdGroupCriterion}
 @import helper._
     @args(args: (Symbol, Any)*) = @{
         args
@@ -67,20 +67,12 @@
                                 <tbody>
                                     @currentPageData.map { keyword =>
                                         <tr class="gradeA odd">
-                                            <td class="sorting_1">@keyword.getCriterion.getId</td>
-                                            <td class=" ">@keyword.getCriterion.asInstanceOf[Keyword].getText</td>
-                                            @keyword match {
-                                                case x: BiddableAdGroupCriterion => {
-                                                    <td class=" ">@x.getCriterion.asInstanceOf[Keyword].getMatchType.toString</td>
-                                                    <td class=" ">@x.getUserStatus.toString</td>
-                                                }
-                                                case y: NegativeAdGroupCriterion => {
-                                                    <td class=" ">@y.getCriterion.asInstanceOf[Keyword].getMatchType.toString</td>
-                                                    <td class=" ">N/A</td>
-                                                }
-                                            }
+                                            <td class="sorting_1">@keyword.getLong("criterionId")</td>
+                                            <td class=" ">@keyword.getString("text")</td>
+                                            <td class=" ">@keyword.getString("matchType")</td>
+                                            <td class=" ">@keyword.getString("userStatus")</td>
                                             <td class="center ">
-                                                @form(controllers.google.mcc.account.campaign.adgroup.criterion.routes.KeywordController.editKeyword(keyword.getCriterion.getId)) {
+                                                @form(controllers.google.mcc.account.campaign.adgroup.criterion.routes.KeywordController.editKeyword(keyword.getLong("criterionId"))) {
                                                     <input type="submit" value="Edit" class="btn btn-primary btn-xs">
                                                 }
                                             </td>

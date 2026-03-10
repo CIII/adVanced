@@ -1,8 +1,9 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
-    currentPageData: List[com.google.api.ads.adwords.axis.v201609.cm.CampaignCriterion],
+    currentPageData: List[Document],
     currentPage: Int,
     currentPageSize: Int,
     currentOrderBy: Int,
@@ -11,7 +12,6 @@
 cached_campaign_ad_schedule_changes: List[Shared.Shared.PendingCacheStructure]
 )(implicit request: AuthenticatedRequest[Any], messages: Messages)
 
-@import com.google.api.ads.adwords.axis.v201609.cm.AdSchedule
 @import helper._
 @args(args: (Symbol, Any)*) = @{
     args
@@ -70,14 +70,14 @@ cached_campaign_ad_schedule_changes: List[Shared.Shared.PendingCacheStructure]
                                 <tbody>
                                     @currentPageData.map { campaign_ad_schedule =>
                                         <tr class="gradeA odd">
-                                            <td class="sorting_1">@campaign_ad_schedule.getCriterion.asInstanceOf[AdSchedule].getId</td>
-                                            <td class=" ">@campaign_ad_schedule.getCampaignId</td>
-                                            <td class=" ">@campaign_ad_schedule.getCriterion.asInstanceOf[AdSchedule].getDayOfWeek</td>
-                                            <td class=" ">@campaign_ad_schedule.getCriterion.asInstanceOf[AdSchedule].getStartHour</td>
-                                            <td class="center ">@campaign_ad_schedule.getCriterion.asInstanceOf[AdSchedule].getStartMinute</td>
-                                            <td class="center ">@campaign_ad_schedule.getCriterion.asInstanceOf[AdSchedule].getEndHour</td>
+                                            <td class="sorting_1">@campaign_ad_schedule.getLong("criterionId")</td>
+                                            <td class=" ">@campaign_ad_schedule.getLong("campaignId")</td>
+                                            <td class=" ">@campaign_ad_schedule.getString("dayOfWeek")</td>
+                                            <td class=" ">@campaign_ad_schedule.getInteger("startHour")</td>
+                                            <td class="center ">@campaign_ad_schedule.getString("startMinute")</td>
+                                            <td class="center ">@campaign_ad_schedule.getInteger("endHour")</td>
                                             <td class="center ">
-                                                @form(controllers.google.mcc.account.campaign.criterion.routes.CampaignAdScheduleController.editCampaignAdSchedule(campaign_ad_schedule.getCriterion.getId)) {
+                                                @form(controllers.google.mcc.account.campaign.criterion.routes.CampaignAdScheduleController.editCampaignAdSchedule(campaign_ad_schedule.getLong("criterionId"))) {
                                                     <input type="submit" value="Edit" class="btn btn-primary btn-xs">
                                                 }
                                             </td>

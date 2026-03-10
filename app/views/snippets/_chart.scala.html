@@ -1,6 +1,6 @@
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
 @import util.charts.ChartWriter._
-@import Shared.Shared.gson
+@import play.api.libs.json.Json
 @import models.mongodb.UserAccount
 @import models.mongodb.performance.PerformanceEntity
 @import models.mongodb.performance.PerformanceField.PerformanceFieldType._
@@ -532,8 +532,8 @@
 <script type="text/javascript">
 "use strict";
 
-@{ play.api.Logger.info(chart.metaData.toString)}
-var chartMetaData = @Html(gson.toJson(chart.metaData));
+@{ play.api.Logger(getClass).info(chart.metaData.toString)}
+var chartMetaData = @Html(Json.toJson(chart.metaData).toString());
 console.log(JSON.stringify(chartMetaData));
 var fieldMap = new Map();
 var nextGraphId = chartMetaData.graphs.length;
@@ -1042,7 +1042,7 @@ function buildDataTable() {
         dataTable.addColumn('@column.field.visualizationDataType', '@column.header');
     }
 
-    dataTable.addRows(@{Html(gson.toJson(chart.getData))}.data);
+    dataTable.addRows(@{Html(Json.toJson(chart.getData).toString())}.data);
     return dataTable;
 }
 
@@ -1103,7 +1103,7 @@ function buildGraphs() {
                 }
             }
 
-            graphDataTable.addRows(@{Html(gson.toJson(chart.getGraphData(graph)))}.data);
+            graphDataTable.addRows(@{Html(Json.toJson(chart.getGraphData(graph)).toString())}.data);
             @if(graph.graphType.equals("Line") || graph.graphType.equals("Bar")){
                 buildMaterialGraph(graphDataTable, @i, '@graph.graphType');
             } else {

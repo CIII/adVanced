@@ -7,7 +7,6 @@
 
 @import play.api.libs.json.Json
 @import play.api.libs.json.JsArray
-@import Shared.Shared.gson
 
 @main(title="adVanced - Dashboard", chart=true) {
     <div class="row">
@@ -132,7 +131,7 @@
     <script type="text/javascript">
     
     "use strict";
-    var chartMetaData = @Html(gson.toJson(chart.metaData));
+    var chartMetaData = @Html(Json.toJson(chart.metaData).toString());
 
     function registerWindowResize() {
         $(window).resize(function() {
@@ -178,7 +177,7 @@
             dataTable.addColumn('@if(column.isDimension){string} else {number}', '@column.header');
         }
 
-        dataTable.addRows(@{Html(gson.toJson(chart.getData))}.data);
+        dataTable.addRows(@{Html(Json.toJson(chart.getData).toString())}.data);
         return dataTable;
     }
 
@@ -238,7 +237,7 @@
                     }
                 }
 
-                graphDataTable.addRows(@{Html(gson.toJson(chart.getGraphData(graph)))}.data);
+                graphDataTable.addRows(@{Html(Json.toJson(chart.getGraphData(graph)).toString())}.data);
                 @if(graph.graphType.equals("Line") || graph.graphType.equals("Bar")){
                     buildMaterialGraph(graphDataTable, @i, '@graph.graphType');
                 } else {

@@ -1,8 +1,9 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
-    currentPageData: List[com.google.api.ads.adwords.axis.v201609.cm.CampaignCriterion],
+    currentPageData: List[Document],
     currentPage: Int,
     currentPageSize: Int,
     currentOrderBy: Int,
@@ -65,11 +66,11 @@
                                 <tbody>
                                     @currentPageData.map { campaign_proximity =>
                                         <tr class="gradeA_odd">
-                                            <td class="sorting_1">@campaign_proximity.getCriterion.getId</td>
-                                            <td class=" ">@campaign_proximity.getCampaignId</td>
-                                            <td class=" ">@campaign_proximity.getBidModifier</td>
+                                            <td class="sorting_1">@campaign_proximity.getLong("criterionId")</td>
+                                            <td class=" ">@campaign_proximity.getLong("campaignId")</td>
+                                            <td class=" ">@campaign_proximity.getDouble("bidModifier")</td>
                                             <td class="center ">
-                                                @form(controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.editCampaignProximity(campaign_proximity.getCriterion.getId)) {
+                                                @form(controllers.google.mcc.account.campaign.criterion.routes.CampaignProximityController.editCampaignProximity(campaign_proximity.getLong("criterionId"))) {
                                                     <input type="submit" value="Edit" class="btn btn-primary btn-xs">
                                                 }
                                             </td>

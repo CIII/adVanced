@@ -3,14 +3,14 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
     keyword_id: Long,
     keyword_form: Form[KeywordControllerHelper.KeywordForm],
-    ad_group_list: List[com.google.api.ads.adwords.axis.v201609.cm.AdGroup],
+    ad_group_list: List[Document],
     cached_ad_group_list: List[AdGroupControllerHelper.AdGroupForm]
 )(implicit request: AuthenticatedRequest[Any], messages: Messages)
 
-@import com.google.api.ads.adwords.axis.v201609.cm._
 @import helper._
 @args(args: (Symbol, Any)*) = @{
     args
@@ -38,7 +38,7 @@
                     <div class="form-group">
                         @select(
                             keyword_form("keyword.match_type"),
-                            options("" :: List(KeywordMatchType._BROAD, KeywordMatchType._EXACT, KeywordMatchType._PHRASE)),
+                            options("" :: List("BROAD", "EXACT", "PHRASE")),
                             args(
                                 'class -> "chosen-select form-control",
                                 Symbol("data-placeholder") -> "Set Match Type",
@@ -57,7 +57,7 @@
                     <div class="form-group">
                         @select(
                             keyword_form("status"),
-                            options("" :: List(UserStatus._ENABLED, UserStatus._PAUSED, UserStatus._REMOVED)),
+                            options("" :: List("ENABLED", "PAUSED", "REMOVED")),
                             args(
                                 'class -> "chosen-select form-control",
                                 Symbol("data-placeholder") -> "Set Status",
@@ -70,7 +70,7 @@
                     <div class="form-group has-warning">
                         @select(
                             keyword_form("ad_group_id"),
-                            options(cached_ad_group_list.map(_.name + " - Pending").toList ::: ad_group_list.map(_.getName).toList),
+                            options(cached_ad_group_list.map(_.name + " - Pending").toList ::: ad_group_list.map(_.getString("name")).toList),
                             args(
                                 'class -> "chosen-select form-control",
                                 Symbol("data-placeholder") -> "AdGroup",

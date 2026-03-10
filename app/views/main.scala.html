@@ -1,8 +1,5 @@
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
 
-@import scala.concurrent.Await
-@import scala.concurrent.ExecutionContext.Implicits.global
-@import scala.concurrent.duration._
 @import Shared.Shared.PendingCacheStructure
 @import models.mongodb.UserAccount
 @(title: String, chart: Boolean)(content: Html)(implicit request: AuthenticatedRequest[Any])
@@ -89,7 +86,7 @@
                 	<!-- Don't show the tasks or alerts if the user is an advertiser -->
                 	@if(!UserAccount.isAdvertiser(request.subject.get.asInstanceOf[UserAccount])){
 	                    <li>
-	                        @if(Await.result(Shared.Shared.redisClient.lrange(request.subject.get.identifier + Shared.Shared.cache_ext, 0, -1).map(cache => cache), 10 seconds).length < 1) {
+	                        @if(Shared.Shared.pendingCache(Right(request.subject.get.identifier)).length < 1) {
 	                                <button type="button" class="btn btn-success btn-circle disabled" id="btn"><i class="fa fa-check"></i></button>
 	                            } else {
 	                            <form action="/pending" method="post">
@@ -318,32 +315,6 @@
 										<li>
 											<a @if(request.uri.matches("/msn/customer/account/campaign/adgroup.*")) { class="active" } href="/msn/customer/account/campaign/adgroup">AdGroups</a>
 										</li>
-	                                </ul>
-	                            </li>
-	                            <li>
-	                                <a href="#"><i class="fa fa-edit fa-fw"></i> Yahoo Gemini<span class="fa arrow"></span></a>
-	                                <ul class="nav nav-second-level @if(request.uri.matches("/yahoo.*")) { active }">
-	                                    <li>
-	                                        <a @if(request.uri.matches("/yahoo/api_account.*")) { class="active" } href="/yahoo/api_account">API Account</a>
-	                                    </li>
-	                                    <li>
-	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser.*")) { class="active" } href="/yahoo/api_account/advertiser">Advertisers</a>
-	                                    </li>
-	                                    <li>
-	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser/campaign/.*")) { class="active" }  href="/yahoo/api_account/advertiser/campaign/">Campaigns</a>
-	                                    </li>
-	                                    <li>
-	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser/campaign/adgroup/.*")) { class="active" } href="/yahoo/api_account/advertiser/campaign/ad-group/">Ad Groups</a>
-	                                    </li>
-	                                    <li>
-	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser/campaign/adgroup/ad/.*")) { class="active" } href="/yahoo/api_account/advertiser/campaign/ad-group/ad/">Ads</a>
-	                                    </li>
-	                                    <li>
-	                                        <a @if(request.uri.matches("/yahoo/api_account/advertiser/campaign/adgroup/keyword/.*")) { class="active" } href="/yahoo/api_account/advertiser/campaign/ad-group/keyword/">Keywords</a>
-	                                    </li>
-	                                    <li>
-	                                        <a @if(request.uri.matches("/yahoo/alert.*")) { class="active" } href="/yahoo/alert">Alerts</a>
-	                                    </li>
 	                                </ul>
 	                            </li>
 	                            <li @if(request.uri.matches("/facebook.*")) { class="active" }>

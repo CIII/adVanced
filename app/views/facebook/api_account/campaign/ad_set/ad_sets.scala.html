@@ -2,7 +2,7 @@
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
 @(
-    currentPageData: List[com.facebook.ads.sdk.AdSet],
+    currentPageData: List[org.mongodb.scala.bson.Document],
     currentPage: Int,
     currentPageSize: Int,
     currentOrderBy: Int,
@@ -61,8 +61,8 @@
                                 <tbody>
                                     @currentPageData.map { ad_set =>
                                         <tr class="gradeA odd">
-                                            <td class=" ">@ad_set.getFieldId</td>
-                                            <td class=" ">@ad_set.getFieldName</td>
+                                            <td class=" ">@ad_set.getString("id")</td>
+                                            <td class=" ">@ad_set.getString("name")</td>
                                         </tr>
                                     }
                                 </tbody>

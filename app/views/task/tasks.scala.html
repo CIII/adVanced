@@ -4,13 +4,11 @@
 @()(implicit request: AuthenticatedRequest[Any])
 
 @import helper._
-@import play.api.Play.current
-@import play.api.cache.Cache
     @args(args: (Symbol, Any)*) = @{
         args
     }
 @main(title="adVanced - Tasks", chart=false) {
-    @defining(Cache.get(request.session.get(Security.username).get + Shared.Shared.task_ext).asInstanceOf[List[Shared.Shared.TaskStructure]]) { task_list =>
+    @defining(List[Shared.Shared.TaskStructure]()) { task_list =>
         <div class="row">
             <div class="col-lg-12">
                 <table>
@@ -52,7 +50,7 @@
                                         <td>@task.startTime</td>
                                         <td>@task.completeTime'</td>
                                         <td>
-                                            @form(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups()) {
+                                            @form(controllers.google.mcc.account.campaign.adgroup.routes.AdGroupController.adGroups) {
                                                 <input type="submit" value="View" class="btn btn-primary btn-sm">
                                             }
                                         </td>

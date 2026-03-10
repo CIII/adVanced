@@ -5,7 +5,6 @@
     budget_id: Long,
     budget_form: Form[helpers.google.mcc.account.BudgetControllerHelper.BudgetForm]
 )(implicit request: AuthenticatedRequest[Any], messages: Messages)
-@import com.google.api.ads.adwords.axis.v201609.cm._
 @import helper._
     @args(args: (Symbol, Any)*) = @{
         args
@@ -28,7 +27,7 @@
                     <div class="form-group">
                     @select(
                         budget_form("deliveryMethod"),
-                        options("" :: List(BudgetBudgetDeliveryMethod._ACCELERATED, BudgetBudgetDeliveryMethod._STANDARD)),
+                        options("" :: List("ACCELERATED", "STANDARD")),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Set Delivery Method",
@@ -48,7 +47,7 @@
                     <div class="form-group">
                     @select(
                         budget_form("status"),
-                        options("" :: List(BudgetBudgetStatus._ENABLED, BudgetBudgetStatus._REMOVED, BudgetBudgetStatus._UNKNOWN)),
+                        options("" :: List("ENABLED", "REMOVED", "UNKNOWN")),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Set Budget Status",

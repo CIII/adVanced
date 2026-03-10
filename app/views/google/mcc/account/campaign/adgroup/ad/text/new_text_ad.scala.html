@@ -4,7 +4,6 @@
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
 @(text_ad_form: Form[TextAdControllerHelper.TextAdForm],  bulk_import_errors: List[String])(implicit request: AuthenticatedRequest[Any], messages: Messages)
 
-@import com.google.api.ads.adwords.axis.v201609.cm._
 @import helper._
     @args(args: (Symbol, Any)*) = @{
         args
@@ -36,7 +35,7 @@
                     <div class="form-group">
                     @select(
                         text_ad_form("status"),
-                        options("" :: List(UserStatus._ENABLED, UserStatus._PAUSED, UserStatus._REMOVED)),
+                        options("" :: List("ENABLED", "PAUSED", "REMOVED")),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Set Status",

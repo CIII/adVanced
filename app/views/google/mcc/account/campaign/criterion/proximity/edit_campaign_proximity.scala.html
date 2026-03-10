@@ -1,10 +1,11 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
     campaign_proximity_id: Long,
     campaign_proximity_form: Form[helpers.google.mcc.account.campaign.criterion.CampaignProximityControllerHelper.CampaignProximityForm],
-    campaign_list: List[com.google.api.ads.adwords.axis.v201609.cm.Campaign],
+    campaign_list: List[Document],
     cached_campaign_list: List[helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignForm]
 )(implicit request: AuthenticatedRequest[Any], messages: Messages)
 
@@ -24,7 +25,7 @@
                     <div class="form-group has-warning">
                     @select(
                         campaign_proximity_form("campaignApiId"),
-                        options("" :: cached_campaign_list.map(_.name + " - Pending") ::: campaign_list.map(_.getName).toList),
+                        options("" :: cached_campaign_list.map(_.name + " - Pending") ::: campaign_list.map(_.getString("name")).toList),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Campaign",

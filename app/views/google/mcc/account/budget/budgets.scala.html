@@ -1,8 +1,9 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
-    currentPageData: List[com.google.api.ads.adwords.axis.v201609.cm.Budget],
+    currentPageData: List[Document],
     currentPage: Int,
     currentPageSize: Int,
     currentOrderBy: Int,
@@ -65,11 +66,11 @@
                                 <tbody>
                                     @currentPageData.map { budget =>
                                         <tr class="gradeA odd">
-                                            <td class="sorting_1">@budget.getBudgetId</td>
-                                            <td class=" ">@budget.getName</td>
-                                            <td class=" ">@budget.getStatus</td>
+                                            <td class="sorting_1">@budget.getLong("budgetId")</td>
+                                            <td class=" ">@budget.getString("name")</td>
+                                            <td class=" ">@budget.getString("status")</td>
                                             <td class="center ">
-                                                @form(controllers.google.mcc.account.routes.BudgetController.editBudget(budget.getBudgetId)) {
+                                                @form(controllers.google.mcc.account.routes.BudgetController.editBudget(budget.getLong("budgetId"))) {
                                                     <input type="submit" value="Edit" class="btn btn-primary btn-xs">
                                                 }
                                             </td>

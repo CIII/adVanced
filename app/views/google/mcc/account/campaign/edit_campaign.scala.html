@@ -1,13 +1,13 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
     campaign_id: Long,
     campaign_form: Form[helpers.google.mcc.account.campaign.CampaignControllerHelper.CampaignForm],
-    budget_list: List[com.google.api.ads.adwords.axis.v201609.cm.Budget]
+    budget_list: List[Document]
 )(implicit request: AuthenticatedRequest[Any], messages: Messages)
 
-@import com.google.api.ads.adwords.axis.v201609.cm._
 @import play.api.Logger
 @import helper._
 @args(args: (Symbol, Any)*) = @{
@@ -28,7 +28,7 @@
                     <div class="form-group">
                     @select(
                         campaign_form("status"),
-                        options("" :: List[String](CampaignStatus._ENABLED, CampaignStatus._REMOVED, CampaignStatus._PAUSED)),
+                        options("" :: List[String]("ENABLED", "REMOVED", "PAUSED")),
                         args(
                             'class -> "chosen-select form-control",
                             Symbol("data-placeholder") -> "Set Status",
@@ -68,11 +68,11 @@
                     @select(
                         campaign_form("adServingOptimizationStatus"),
                         options("" :: List[String](
-                            AdServingOptimizationStatus._CONVERSION_OPTIMIZE,
-                            AdServingOptimizationStatus._OPTIMIZE,
-                            AdServingOptimizationStatus._ROTATE,
-                            AdServingOptimizationStatus._ROTATE_INDEFINITELY,
-                            AdServingOptimizationStatus._UNAVAILABLE
+                            "CONVERSION_OPTIMIZE",
+                            "OPTIMIZE",
+                            "ROTATE",
+                            "ROTATE_INDEFINITELY",
+                            "UNAVAILABLE"
                         )),
                         args(
                             'class -> "chosen-select form-control",
@@ -87,10 +87,10 @@
                     @select(
                         campaign_form("advertisingChannelType"),
                         options("" :: List[String](
-                            AdvertisingChannelType._DISPLAY,
-                            AdvertisingChannelType._SEARCH,
-                            AdvertisingChannelType._SHOPPING,
-                            AdvertisingChannelType._UNKNOWN
+                            "DISPLAY",
+                            "SEARCH",
+                            "SHOPPING",
+                            "UNKNOWN"
                         )),
                         args(
                             'class -> "chosen-select form-control",
@@ -112,7 +112,7 @@
                             @inputText(campaign_form("frequencyCapImpressions"), '_label -> "Impressions", 'class -> "form-control", '_showConstraints -> false)
                             @select(
                                 campaign_form("frequencyCapTimeUnit"),
-                                options("" :: List[String](TimeUnit._DAY, TimeUnit._HOUR, TimeUnit._LIFETIME, TimeUnit._MINUTE, TimeUnit._MONTH, TimeUnit._WEEK)),
+                                options("" :: List[String]("DAY", "HOUR", "LIFETIME", "MINUTE", "MONTH", "WEEK")),
                                 args(
                                     'class -> "chosen-select form-control",
                                     Symbol("data-placeholder") -> "Set Time Unit",
@@ -123,7 +123,7 @@
                             )
                             @select(
                                 campaign_form("frequencyCapLevel"),
-                                options("" :: List[String](Level._ADGROUP, Level._CAMPAIGN, Level._CREATIVE, Level._UNKNOWN)),
+                                options("" :: List[String]("ADGROUP", "CAMPAIGN", "CREATIVE", "UNKNOWN")),
                                 args(
                                     'class -> "chosen-select form-control",
                                     Symbol("data-placeholder") -> "Set Level",

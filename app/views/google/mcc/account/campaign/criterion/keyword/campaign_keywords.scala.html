@@ -1,8 +1,9 @@
 @import security._
 @import be.objectify.deadbolt.scala.views.html._
 @import be.objectify.deadbolt.scala.AuthenticatedRequest
+@import org.mongodb.scala.bson.Document
 @(
-    currentPageData: List[com.google.api.ads.adwords.axis.v201609.cm.CampaignCriterion],
+    currentPageData: List[Document],
     currentPage: Int,
     currentPageSize: Int,
     currentOrderBy: Int,
@@ -11,7 +12,6 @@
     cached_campaign_keyword_changes: List[Shared.Shared.PendingCacheStructure]
 )(implicit request: AuthenticatedRequest[Any])
 
-@import com.google.api.ads.adwords.axis.v201609.cm.Keyword
 @import helper._
 
 @args(args: (Symbol, Any)*) = @{
@@ -68,14 +68,14 @@
                                 <tbody>
                                     @currentPageData.map { campaign_keyword =>
                                         <tr class="gradeA_odd">
-                                            <td class="sorting_1">@campaign_keyword.getCriterion.getId</td>
-                                            <td>@campaign_keyword.getCriterion.asInstanceOf[Keyword].getText</td>
-                                            <td>@campaign_keyword.getCriterion.asInstanceOf[Keyword].getMatchType</td>
-                                            <td class="center ">@campaign_keyword.getBidModifier<td>
+                                            <td class="sorting_1">@campaign_keyword.getLong("criterionId")</td>
+                                            <td>@campaign_keyword.getString("text")</td>
+                                            <td>@campaign_keyword.getString("matchType")</td>
+                                            <td class="center ">@campaign_keyword.getDouble("bidModifier")<td>
                                             <td class="center ">
                                                 @form(
                                                     controllers.google.mcc.account.campaign.criterion.routes.CampaignKeywordController.editCampaignKeyword(
-                                                        campaign_keyword.getCriterion.getId
+                                                        campaign_keyword.getLong("criterionId")
                                                     )
                                                 ) {
                                                     <input type="submit" value="Edit" class="btn btn-primary btn-xs">
