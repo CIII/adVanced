@@ -1,42 +1,67 @@
 package helpers.facebook.api_account.campaign.ad_set.ad
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.{Form, Forms}
 import play.api.data.Forms._
+import scala.jdk.CollectionConverters._
 
 object AdControllerHelper {
 
+  case class AdParent(
+    apiAccountObjId: Option[String],
+    campaignApiId: Option[String],
+    adSetApiId: Option[String]
+  )
+
+  def adParentToDocument(ap: AdParent): Document = Document(
+    "apiAccountObjId" -> ap.apiAccountObjId,
+    "campaignApiId" -> ap.campaignApiId,
+    "adSetApiId" -> ap.adSetApiId
+  )
+
+  def documentToAdParent(dbo: Document): AdParent = AdParent(
+    apiAccountObjId = Option(dbo.getString("apiAccountObjId")),
+    campaignApiId = Option(dbo.getString("campaignApiId")),
+    adSetApiId = Option(dbo.getString("adSetApiId"))
+  )
+
   case class AdCreative(
-    var adImage: Option[String],
-    var adLink: String,
-    var adMessage: Option[String]
+    adImage: Option[String],
+    adLink: String,
+    adMessage: Option[String]
   )
 
   case class AdForm(
-    var parent: AdParent,
-    var apiId: Option[String],
-    var accountId: String,
-    var adSetId: String,
-    var campaignId: String,
-    var adLabels: Option[List[String]],
-    var adCreatives: Option[List[AdCreative]],
-    var bidAmount: Option[Long],
-    var createdTime: Option[String],
-    var effectiveStatus: Option[String],
-    var name: String,
-    var status: Option[String],
-    var updatedTime: Option[String]
+    parent: AdParent,
+    apiId: Option[String],
+    accountId: String,
+    adSetId: String,
+    campaignId: String,
+    adLabels: Option[List[String]],
+    adCreatives: Option[List[AdCreative]],
+    bidAmount: Option[Long],
+    createdTime: Option[String],
+    effectiveStatus: Option[String],
+    name: String,
+    status: Option[String],
+    updatedTime: Option[String]
   )
 
-  def adFormToDbo(asf: AdForm): DBObject = {
-    DBObject(
-      "parent" -> asf.parent,
+  def adFormToDocument(asf: AdForm): Document = {
+    Document(
+      "parent" -> adParentToDocument(asf.parent),
       "apiId" -> asf.apiId,
       "accountId" -> asf.accountId,
       "adSetId" -> asf.adSetId,
       "campaignId" -> asf.campaignId,
       "adLabels" -> asf.adLabels,
-      "adCreatives" -> asf.adCreatives,
+      "adCreatives" -> asf.adCreatives.map(_.map(ac => Document(
+        "adImage" -> ac.adImage,
+        "adLink" -> ac.adLink,
+        "adMessage" -> ac.adMessage
+      ))),
       "bidAmount" -> asf.bidAmount,
       "createdTime" -> asf.createdTime,
       "effectiveStatus" -> asf.effectiveStatus,
@@ -46,21 +71,27 @@ object AdControllerHelper {
     )
   }
 
-  def dboToAdForm(dbo: DBObject): AdForm = {
+  def documentToAdForm(dbo: Document): AdForm = {
     AdForm(
-      parent=dboToAdParent(dbo.as[DBObject]("parent")),
-      apiId = dbo.getAs[String]("apiId"),
-      accountId = dbo.getAsOrElse[String]("accountId", ""),
-      adSetId = dbo.getAsOrElse[String]("adSetId", ""),
-      campaignId = dbo.getAsOrElse[String]("campaignId", ""),
-      adLabels = dbo.getAs[List[String]]("adLabels"),
-      adCreatives = dbo.getAs[List[AdCreative]]("adCreatives"),
-      bidAmount = dbo.getAs[Long]("bidAmount"),
-      createdTime = dbo.getAs[String]("createdTime"),
-      effectiveStatus = dbo.getAs[String]("effectiveStatus"),
-      name = dbo.getAsOrElse[String]("name", ""),
-      status = dbo.getAs[String]("status"),
-      updatedTime = dbo.getAs[String]("updatedTime")
+      parent=documentToAdParent(Option(dbo.toBsonDocument.get("parent")).map(v => Document(v.asDocument())).get),
+      apiId = Option(dbo.getString("apiId")),
+      accountId = Option(dbo.getString("accountId")).getOrElse(""),
+      adSetId = Option(dbo.getString("adSetId")).getOrElse(""),
+      campaignId = Option(dbo.getString("campaignId")).getOrElse(""),
+      adLabels = Option(dbo.getList("adLabels", classOf[String])).map(_.asScala.toList),
+      adCreatives = Option(dbo.getList("adCreatives", classOf[Document])).map(_.asScala.toList.map(d =>
+        AdCreative(
+          adImage = Option(d.getString("adImage")),
+          adLink = d.getString("adLink"),
+          adMessage = Option(d.getString("adMessage"))
+        )
+      )),
+      bidAmount = Option(dbo.getLong("bidAmount")).map(_.toLong),
+      createdTime = Option(dbo.getString("createdTime")),
+      effectiveStatus = Option(dbo.getString("effectiveStatus")),
+      name = Option(dbo.getString("name")).getOrElse(""),
+      status = Option(dbo.getString("status")),
+      updatedTime = Option(dbo.getString("updatedTime"))
     )
   }
 

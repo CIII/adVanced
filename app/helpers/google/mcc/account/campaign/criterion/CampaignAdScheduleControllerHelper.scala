@@ -1,6 +1,8 @@
 package helpers.google.mcc.account.campaign.criterion
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import models.mongodb.Utilities
 import play.api.data.Form
 import play.api.data.Forms._
@@ -9,37 +11,37 @@ import play.api.data.format.Formats._
 object CampaignAdScheduleControllerHelper {
 
   case class CampaignAdScheduleForm(
-    var parent: controllers.Google.CampaignCriterionParent,
-    var apiId: Option[Long],
-    var isNegative: Option[Boolean],
-    var dayOfWeek: String,
-    var startHour: Int,
-    var startMinute: String,
-    var endHour: Int,
-    var endMinute: String,
-    var bidModifier: Double
+    parent: controllers.Google.CampaignCriterionParent,
+    apiId: Option[Long],
+    isNegative: Option[Boolean],
+    dayOfWeek: String,
+    startHour: Int,
+    startMinute: String,
+    endHour: Int,
+    endMinute: String,
+    bidModifier: Double
   )
 
-  def dboToCampaignAdScheduleForm(dbo: DBObject): CampaignAdScheduleForm = {
+  def documentToCampaignAdScheduleForm(dbo: Document): CampaignAdScheduleForm = {
     CampaignAdScheduleForm(
-      parent=controllers.Google.dboToCampaignCriterionParent(dbo.getAs[DBObject]("parent").get),
-      apiId=dbo.getAsOrElse[Option[Long]]("ApiId", None),
-      isNegative=dbo.getAsOrElse[Option[Boolean]]("isNegative", None),
-      dayOfWeek=dbo.getAs[String]("dayOfWeek").get,
-      startHour=dbo.getAs[Int]("startHour").get,
-      startMinute=dbo.getAs[String]("startMinute").get,
-      endHour=dbo.getAs[Int]("endHour").get,
-      endMinute=dbo.getAs[String]("endMinute").get,
-      bidModifier=dbo.getAs[Double]("bidModifier").get
+      parent=controllers.Google.documentToCampaignCriterionParent(Option(dbo.toBsonDocument.get("parent")).filter(_.isDocument).map(v => Document(v.asDocument())).get),
+      apiId=Option(dbo.getLong("ApiId")).map(_.toLong),
+      isNegative=Option(dbo.getBoolean("isNegative")).map(_.booleanValue()),
+      dayOfWeek=dbo.getString("dayOfWeek"),
+      startHour=dbo.getInteger("startHour"),
+      startMinute=dbo.getString("startMinute"),
+      endHour=dbo.getInteger("endHour"),
+      endMinute=dbo.getString("endMinute"),
+      bidModifier=dbo.getDouble("bidModifier")
     )
   }
 
-  def campaignAdScheduleFormToDbo(casf: CampaignAdScheduleForm): DBObject = {
-    var dbo = DBObject.newBuilder
+  def campaignAdScheduleFormToDocument(casf: CampaignAdScheduleForm): Document = {
+    var dbo = Document()
     for((name, idx) <- Utilities.getCaseClassParameter[CampaignAdScheduleForm].zipWithIndex) {
-      dbo += (Utilities.getMethodName(name) -> casf.productElement(idx))
+      dbo = dbo ++ Document(Utilities.getMethodName(name) -> casf.productElement(idx).toString)
     }
-    dbo.result
+    dbo
   }
 
   def campaignAdScheduleForm: Form[CampaignAdScheduleForm] = Form(

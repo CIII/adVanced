@@ -1,50 +1,52 @@
 package helpers.google.mcc.account.campaign
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Form
 import play.api.data.Forms._
 import models.mongodb.google.Google._
 
 object CampaignControllerHelper {
   case class CampaignParent(
-    var mccObjId: Option[String],
-    var customerApiId: Option[Long]
+    mccObjId: Option[String],
+    customerApiId: Option[Long]
   )
 
-  def campaignParentToDbo(cp: CampaignParent) = DBObject(
+  def campaignParentToDocument(cp: CampaignParent) = Document(
     "mccObjId" -> cp.mccObjId,
     "customerApiId" -> cp.customerApiId
   )
 
-  def dboToCampaignParent(dbo: DBObject) = CampaignParent(
-    mccObjId=dbo.getAsOrElse[Option[String]]("mccObjId", None),
-    customerApiId=dbo.getAsOrElse[Option[Long]]("customerApiId", None)
+  def documentToCampaignParent(dbo: Document) = CampaignParent(
+    mccObjId=Option(dbo.getString("mccObjId")),
+    customerApiId=Option(dbo.getLong("customerApiId")).map(_.toLong)
   )
 
   case class CampaignForm(
-    var parent: CampaignParent,
-    var apiId: Option[Long],
-    var name: String,
-    var status: Option[String],
-    var servingStatus: Option[String],
-    var startDate: Option[String],
-    var endDate: Option[String],
-    var budgetAmount: Option[Int],
-    var isSharedBudget: Option[Boolean],
-    var advertisingChannelType: Option[String],
-    var adServingOptimizationStatus: Option[String],
-    var frequencyCapImpressions: Option[Long],
-    var frequencyCapTimeUnit: Option[String],
-    var frequencyCapLevel: Option[String],
-    var targetGoogleSearch: Option[Boolean],
-    var targetSearchNetwork: Option[Boolean],
-    var targetContentNetwork: Option[Boolean],
-    var targetPartnerSearchNetwork: Option[Boolean]
+    parent: CampaignParent,
+    apiId: Option[Long],
+    name: String,
+    status: Option[String],
+    servingStatus: Option[String],
+    startDate: Option[String],
+    endDate: Option[String],
+    budgetAmount: Option[Int],
+    isSharedBudget: Option[Boolean],
+    advertisingChannelType: Option[String],
+    adServingOptimizationStatus: Option[String],
+    frequencyCapImpressions: Option[Long],
+    frequencyCapTimeUnit: Option[String],
+    frequencyCapLevel: Option[String],
+    targetGoogleSearch: Option[Boolean],
+    targetSearchNetwork: Option[Boolean],
+    targetContentNetwork: Option[Boolean],
+    targetPartnerSearchNetwork: Option[Boolean]
   )
 
-  def campaignFormToDbo(cf: CampaignForm): DBObject = {
-    DBObject(
-      "parent" -> campaignParentToDbo(cf.parent),
+  def campaignFormToDocument(cf: CampaignForm): Document = {
+    Document(
+      "parent" -> campaignParentToDocument(cf.parent),
       "apiId" -> cf.apiId,
       "name" -> cf.name,
       "status" -> cf.status,
@@ -65,26 +67,26 @@ object CampaignControllerHelper {
     )
   }
 
-  def dboToCampaignForm(dbo: DBObject): CampaignForm = {
+  def documentToCampaignForm(dbo: Document): CampaignForm = {
     CampaignForm(
-      parent=dboToCampaignParent(dbo.getAs[DBObject]("parent").get),
-      apiId=dbo.getAsOrElse[Option[Long]]("apiId", None),
-      name=dbo.getAs[String]("name").get,
-      status=dbo.getAs[String]("status"),
-      servingStatus=dbo.getAs[String]("servingStatus"),
-      startDate=dbo.getAs[String]("startDate"),
-      endDate=dbo.getAs[String]("endDate"),
-      budgetAmount=dbo.getAs[Int]("budgetAmount"),
-      isSharedBudget=dbo.getAs[Boolean]("isSharedBudget"),
-      advertisingChannelType=dbo.getAs[String]("advertisingChannelType"),
-      adServingOptimizationStatus=dbo.getAs[String]("adServingOptimizationStatus"),
-      frequencyCapImpressions=dbo.getAs[Long]("frequencyCapImpressions"),
-      frequencyCapTimeUnit=dbo.getAs[String]("frequencyCapTimeUnit"),
-      frequencyCapLevel=dbo.getAs[String]("frequencyCapLevel"),
-      targetGoogleSearch=dbo.getAs[Boolean]("targetGoogleSearch"),
-      targetSearchNetwork=dbo.getAs[Boolean]("targetSearchNetwork"),
-      targetContentNetwork=dbo.getAs[Boolean]("targetContentNetwork"),
-      targetPartnerSearchNetwork=dbo.getAs[Boolean]("targetPartnerSearchNetwork")
+      parent=documentToCampaignParent(Option(dbo.toBsonDocument.get("parent")).filter(_.isDocument).map(v => Document(v.asDocument())).get),
+      apiId=Option(dbo.getLong("apiId")).map(_.toLong),
+      name=dbo.getString("name"),
+      status=Option(dbo.getString("status")),
+      servingStatus=Option(dbo.getString("servingStatus")),
+      startDate=Option(dbo.getString("startDate")),
+      endDate=Option(dbo.getString("endDate")),
+      budgetAmount=Option(dbo.getInteger("budgetAmount")).map(_.intValue()),
+      isSharedBudget=Option(dbo.getBoolean("isSharedBudget")).map(_.booleanValue()),
+      advertisingChannelType=Option(dbo.getString("advertisingChannelType")),
+      adServingOptimizationStatus=Option(dbo.getString("adServingOptimizationStatus")),
+      frequencyCapImpressions=Option(dbo.getLong("frequencyCapImpressions")).map(_.toLong),
+      frequencyCapTimeUnit=Option(dbo.getString("frequencyCapTimeUnit")),
+      frequencyCapLevel=Option(dbo.getString("frequencyCapLevel")),
+      targetGoogleSearch=Option(dbo.getBoolean("targetGoogleSearch")).map(_.booleanValue()),
+      targetSearchNetwork=Option(dbo.getBoolean("targetSearchNetwork")).map(_.booleanValue()),
+      targetContentNetwork=Option(dbo.getBoolean("targetContentNetwork")).map(_.booleanValue()),
+      targetPartnerSearchNetwork=Option(dbo.getBoolean("targetPartnerSearchNetwork")).map(_.booleanValue())
     )
   }
 

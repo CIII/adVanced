@@ -1,52 +1,54 @@
 package helpers.google.mcc.account.campaign.criterion
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.data.format.Formats._
 
 object CampaignProximityControllerHelper {
   case class CampaignProximityForm(
-    var parent: controllers.Google.CampaignCriterionParent,
-    var apiId: Option[Long],
-    var isNegative: Option[Boolean],
-    var latitudeInMicroDegrees: Option[Int],
-    var longitudeInMicroDegrees: Option[Int],
-    var radiusDistanceUnits: String,
-    var radiusInUnits: Double,
-    var streetAddress: Option[String],
-    var streetAddress2: Option[String],
-    var cityName: Option[String],
-    var provinceCode: Option[String],
-    var provinceName: Option[String],
-    var postalCode: Option[String],
-    var countryCode: Option[String],
-    var bidModifier: Option[Double]
+    parent: controllers.Google.CampaignCriterionParent,
+    apiId: Option[Long],
+    isNegative: Option[Boolean],
+    latitudeInMicroDegrees: Option[Int],
+    longitudeInMicroDegrees: Option[Int],
+    radiusDistanceUnits: String,
+    radiusInUnits: Double,
+    streetAddress: Option[String],
+    streetAddress2: Option[String],
+    cityName: Option[String],
+    provinceCode: Option[String],
+    provinceName: Option[String],
+    postalCode: Option[String],
+    countryCode: Option[String],
+    bidModifier: Option[Double]
   )
 
-  def dboToCampaignProximityForm(dbo: DBObject): CampaignProximityForm = {
+  def documentToCampaignProximityForm(dbo: Document): CampaignProximityForm = {
     CampaignProximityForm(
-      parent=controllers.Google.dboToCampaignCriterionParent(dbo.getAs[DBObject]("parent").get),
-      apiId=dbo.getAsOrElse[Option[Long]]("apiId", None),
-      isNegative=dbo.getAsOrElse[Option[Boolean]]("isNegative", None),
-      latitudeInMicroDegrees=dbo.getAsOrElse[Option[Int]]("latitudeInMicroDegrees", None),
-      longitudeInMicroDegrees=dbo.getAsOrElse[Option[Int]]("longitudeInMicroDegrees", None),
-      radiusDistanceUnits=dbo.getAsOrElse[String]("radiusDistanceUnits", ""),
-      radiusInUnits=dbo.getAsOrElse[Double]("radiusInUnits", 0.0),
-      streetAddress=dbo.getAsOrElse[Option[String]]("streetAddress", None),
-      streetAddress2=dbo.getAsOrElse[Option[String]]("streetAddress2", None),
-      cityName=dbo.getAsOrElse[Option[String]]("cityName", None),
-      provinceCode=dbo.getAsOrElse[Option[String]]("provinceCode", None),
-      provinceName=dbo.getAsOrElse[Option[String]]("provinceName", None),
-      postalCode=dbo.getAsOrElse[Option[String]]("postalCode", None),
-      countryCode=dbo.getAsOrElse[Option[String]]("countryCode", None),
-      bidModifier=dbo.getAsOrElse[Option[Double]]("bidModifier", None)
+      parent=controllers.Google.documentToCampaignCriterionParent(Option(dbo.toBsonDocument.get("parent")).filter(_.isDocument).map(v => Document(v.asDocument())).get),
+      apiId=Option(dbo.getLong("apiId")).map(_.toLong),
+      isNegative=Option(dbo.getBoolean("isNegative")).map(_.booleanValue()),
+      latitudeInMicroDegrees=Option(dbo.getInteger("latitudeInMicroDegrees")).map(_.intValue()),
+      longitudeInMicroDegrees=Option(dbo.getInteger("longitudeInMicroDegrees")).map(_.intValue()),
+      radiusDistanceUnits=Option(dbo.getString("radiusDistanceUnits")).getOrElse(""),
+      radiusInUnits=Option(dbo.getDouble("radiusInUnits")).map(_.toDouble).getOrElse(0.0),
+      streetAddress=Option(dbo.getString("streetAddress")),
+      streetAddress2=Option(dbo.getString("streetAddress2")),
+      cityName=Option(dbo.getString("cityName")),
+      provinceCode=Option(dbo.getString("provinceCode")),
+      provinceName=Option(dbo.getString("provinceName")),
+      postalCode=Option(dbo.getString("postalCode")),
+      countryCode=Option(dbo.getString("countryCode")),
+      bidModifier=Option(dbo.getDouble("bidModifier")).map(_.toDouble)
     )
   }
 
-  def campaignProximityFormToDbo(cpf: CampaignProximityForm): DBObject = {
-    DBObject(
-      "parent" -> controllers.Google.campaignCriterionParentToDbo(cpf.parent),
+  def campaignProximityFormToDocument(cpf: CampaignProximityForm): Document = {
+    Document(
+      "parent" -> controllers.Google.campaignCriterionParentToDocument(cpf.parent),
       "apiId" -> cpf.apiId,
       "isNegative" -> cpf.isNegative,
       "latitudeInMicroDegrees" -> cpf.latitudeInMicroDegrees,

@@ -1,31 +1,32 @@
 package helpers
 
-import com.facebook.ads.sdk.{AdSet, Campaign}
-import com.mongodb.casbah.Imports.DBObject
+import org.mongodb.scala.bson.Document
+import models.mongodb.facebook.Facebook
 import models.mongodb.facebook.Facebook._
+import models.mongodb.MongoExtensions._
 
 package object facebook {
-  lazy val accountOptions = facebookApiAccountCollection.find().toList.map { accObj =>
-    val acc = DBObjectToFacebookApiAccount(accObj)
+  def accountOptions = Facebook.facebookApiAccountCollection.find().toList.map { accObj =>
+    val acc = documentToApiAccount(accObj)
     acc.accountId -> acc.accountId
   }
 
-  lazy val campaignOptions = facebookCampaignCollection.find().toList.map { campaignObj =>
-    val campaign = dboToFacebookEntity[Campaign](campaignObj, "campaign", None)
-    campaign.getId -> campaign.getFieldName
+  def campaignOptions = Facebook.facebookCampaignCollection.find().toList.map { campaignObj =>
+    val campaign = documentToFacebookEntity(campaignObj, "campaign", None)
+    Option(campaign.getString("id")).getOrElse("") -> Option(campaign.getString("name")).getOrElse("")
   }
 
-  lazy val adSetOptions = facebookAdSetCollection.find().toList.map { adSetObj =>
-    val adSet = dboToFacebookEntity[Campaign](adSetObj, "adSet", None)
-    adSet.getId -> adSet.getFieldName
+  def adSetOptions = Facebook.facebookAdSetCollection.find().toList.map { adSetObj =>
+    val adSet = documentToFacebookEntity(adSetObj, "adSet", None)
+    Option(adSet.getString("id")).getOrElse("") -> Option(adSet.getString("name")).getOrElse("")
   }
 
-  lazy val buyingTypeOptions = Seq(
+  val buyingTypeOptions = Seq(
     "AUCTION" -> "Auction",
     "RESERVED" -> "Reserved"
   )
 
-  lazy val statusOptions = Seq(
+  val statusOptions = Seq(
     "ACTIVE" -> "Active",
     "PAUSED" -> "Paused",
     "DELETED" -> "Deleted",

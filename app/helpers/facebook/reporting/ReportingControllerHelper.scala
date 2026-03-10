@@ -1,6 +1,7 @@
 package helpers.facebook.reporting
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import org.joda.time.{DurationFieldType, Days, DateTime}
 import org.joda.time.format.DateTimeFormat
 
@@ -10,12 +11,8 @@ object ReportingControllerHelper {
 
   val facebookReportDateFormatter = DateTimeFormat.forPattern("yyyy-MM-dd")
 
-  def buildQry(campaignId: String, adGroupId: String, adId: String, keywordId: String, startDate: String, endDate: String): DBObject = {
-    val qry = DBObject.newBuilder
-    /*if(campaignId.nonEmpty) { qry += ("campaign id" -> campaignId) }
-    if(adGroupId.nonEmpty) { qry += ("ad group id" -> adGroupId) }
-    if(adId.nonEmpty) { qry += ("ad id" -> adId) }
-    if(keywordId.nonEmpty) { qry += ("keyword id" -> keywordId) }*/
+  def buildQry(campaignId: String, adGroupId: String, adId: String, keywordId: String, startDate: String, endDate: String): Document = {
+    var qry = Document()
 
     val rangeList = ListBuffer[String]()
     var s: DateTime = DateTime.now.minusDays(1)
@@ -34,8 +31,8 @@ object ReportingControllerHelper {
       rangeList += facebookReportDateFormatter.print(s.withFieldAdded(DurationFieldType.days(), day))
     }
 
-    qry += ("day" -> DBObject("$in" -> MongoDBList(rangeList: _*)))
+    qry = qry ++ Document("day" -> Document("$in" -> rangeList.toList))
 
-    qry.result()
+    qry
   }
 }

@@ -1,29 +1,32 @@
 package helpers.google.mcc.account.campaign.adgroup.ad
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import controllers.Google.AdGroupAdForm
 import play.api.data.Form
 import play.api.data.Forms._
 import scala.collection.immutable.List
+import scala.jdk.CollectionConverters._
 
 object ImageAdControllerHelper {
   case class ImageAdForm (
-    var parent: controllers.Google.AdGroupAdParent,
-    var apiId: Option[Long],
-    var url: Option[String],
-    var displayUrl: Option[String],
-    var devicePreference: Option[Long],
-    var imageName: String,
-    var imageFileSize: Option[Long],
-    var imageData: Option[Array[Byte]],
-    var status: Option[String],
-    var approvalStatus: Option[String],
-    var disapprovalReasons: Option[List[String]],
-    var trademarkDisapproved: Option[Boolean]
+    parent: controllers.Google.AdGroupAdParent,
+    apiId: Option[Long],
+    url: Option[String],
+    displayUrl: Option[String],
+    devicePreference: Option[Long],
+    imageName: String,
+    imageFileSize: Option[Long],
+    imageData: Option[Array[Byte]],
+    status: Option[String],
+    approvalStatus: Option[String],
+    disapprovalReasons: Option[List[String]],
+    trademarkDisapproved: Option[Boolean]
   ) extends AdGroupAdForm
 
-  def imageAdFormToDbo(iaf: ImageAdForm) = DBObject(
-    "parent" -> controllers.Google.adGroupAdParentToDbo(iaf.parent),
+  def imageAdFormToDocument(iaf: ImageAdForm) = Document(
+    "parent" -> controllers.Google.adGroupAdParentToDocument(iaf.parent),
     "apiId" -> iaf.apiId,
     "url" -> iaf.url,
     "displayUrl" -> iaf.displayUrl,
@@ -37,19 +40,19 @@ object ImageAdControllerHelper {
     "trademarkDisapproved" -> iaf.trademarkDisapproved
   )
 
-  def dboToImageAdForm(dbo: DBObject) = ImageAdForm(
-    parent = controllers.Google.dboToAdGroupAdParent(dbo.as[DBObject]("parent")),
-    apiId = dbo.getAsOrElse[Option[Long]]("apiId", None),
-    url = dbo.getAsOrElse[Option[String]]("url", None),
-    displayUrl = dbo.getAsOrElse[Option[String]]("displayUrl", None),
-    devicePreference = dbo.getAsOrElse[Option[Long]]("devicePreference", None),
-    imageName = dbo.getAs[String]("imageName").get,
-    imageFileSize = dbo.getAsOrElse[Option[Long]]("imageFileSize", None),
-    imageData = dbo.getAsOrElse[Option[Array[Byte]]]("imageData", None),
-    status = dbo.getAsOrElse[Option[String]]("status", None),
-    approvalStatus = dbo.getAsOrElse[Option[String]]("approvalStatus", None),
-    disapprovalReasons = dbo.getAsOrElse[Option[List[String]]]("disapprovalReasons", None),
-    trademarkDisapproved = dbo.getAsOrElse[Option[Boolean]]("trademarkDisapproved", None)
+  def documentToImageAdForm(dbo: Document) = ImageAdForm(
+    parent = controllers.Google.documentToAdGroupAdParent(Option(dbo.toBsonDocument.get("parent")).map(v => Document(v.asDocument())).get),
+    apiId = Option(dbo.getLong("apiId")).map(_.toLong),
+    url = Option(dbo.getString("url")),
+    displayUrl = Option(dbo.getString("displayUrl")),
+    devicePreference = Option(dbo.getLong("devicePreference")).map(_.toLong),
+    imageName = dbo.getString("imageName"),
+    imageFileSize = Option(dbo.getLong("imageFileSize")).map(_.toLong),
+    imageData = Option(dbo.get("imageData")).map(_.asInstanceOf[Array[Byte]]),
+    status = Option(dbo.getString("status")),
+    approvalStatus = Option(dbo.getString("approvalStatus")),
+    disapprovalReasons = Option(dbo.getList("disapprovalReasons", classOf[String])).map(_.asScala.toList),
+    trademarkDisapproved = Option(dbo.getBoolean("trademarkDisapproved")).map(_.booleanValue())
   )
 
   def imageAdForm: Form[ImageAdForm] = Form(

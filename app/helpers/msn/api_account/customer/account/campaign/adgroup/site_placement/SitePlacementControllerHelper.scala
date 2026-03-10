@@ -1,6 +1,8 @@
 package helpers.msn.api_account.customer.account.campaign.adgroup.site_placement
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.data.format.Formats._
@@ -18,18 +20,18 @@ object SitePlacementControllerHelper {
     url: String
   )
 
-  def dboToSitePlacementForm(dbo: DBObject) = SitePlacementForm(
-    apiId=dbo.getAsOrElse[Option[Long]]("apiId", None),
-    sitePlacementApiId=dbo.getAsOrElse[Option[Long]]("sitePLacementApiId", None),
-    bid=Some(dboToBid(dbo.getAs[DBObject]("bid").get)),
-    status=dbo.getAsOrElse[Option[String]]("status", None),
-    url=dbo.getAsOrElse[String]("url", "")
+  def documentToSitePlacementForm(dbo: Document) = SitePlacementForm(
+    apiId=Option(dbo.getLong("apiId")).map(_.toLong),
+    sitePlacementApiId=Option(dbo.getLong("sitePLacementApiId")).map(_.toLong),
+    bid=Some(documentToBid(Option(dbo.toBsonDocument.get("bid")).filter(_.isDocument).map(v => Document(v.asDocument())).get)),
+    status=Option(dbo.getString("status")),
+    url=Option(dbo.getString("url")).getOrElse("")
   )
 
-  def sitePlacementFormToDbo(spf: SitePlacementForm) = DBObject(
+  def sitePlacementFormToDocument(spf: SitePlacementForm) = Document(
     "apiId" -> spf.apiId,
     "sitePlacementApiId" -> spf.sitePlacementApiId,
-    "bid" -> bidToDbo(spf.bid.get),
+    "bid" -> bidToDocument(spf.bid.get),
     "status" -> spf.status,
     "url" -> spf.url
   )

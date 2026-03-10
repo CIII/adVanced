@@ -1,35 +1,17 @@
 package helpers
 
-import com.google.api.ads.adwords.axis.v201609.cm.{AdGroup, Budget, Campaign}
-import com.google.api.ads.adwords.axis.v201609.mcm.Customer
-import com.mongodb.casbah.Imports.DBObject
-import models.mongodb.google
-import models.mongodb.google.Google.googleMccCollection
-import models.mongodb.google.Google._
+import org.mongodb.scala.bson.Document
 
+/**
+ * Google Ads helper utilities.
+ *
+ * TODO: Re-implement with Google Ads API v18 when migration is complete.
+ * The old AdWords API types (Customer, Campaign, AdGroup, Budget) are no longer available.
+ * These lazy vals should be replaced with injectable services that query the MongoDB
+ * collections and return Document-based representations.
+ */
 package object google {
-  lazy val mccOptions = googleMccCollection.find().toList.map { mccObj =>
-    val mcc = dboToMcc(mccObj)
-    mcc.name -> mcc._id.toString
-  }
-
-  lazy val accountOptions = googleCustomerCollection.find().toList.map { accObj =>
-    val acc = dboToGoogleEntity[Customer](accObj, "customer", None)
-    acc.getDescriptiveName -> acc.getCustomerId
-  }
-
-  lazy val campaignOptions = googleCampaignCollection.find().toList.map{ campaignObj =>
-    val campaign = dboToGoogleEntity[Campaign](campaignObj, "campaign", None)
-    campaign.getName -> campaign.getId.toString
-  }
-
-  lazy val adGroupOptions = googleAdGroupCollection.find().toList.map{ adGroupObj =>
-    val adGroup = dboToGoogleEntity[AdGroup](adGroupObj, "adGroup", None)
-    adGroup.getName -> adGroup.getId.toString
-  }
-
-  lazy val budgetOptions = googleBudgetCollection.find().toList.map { budgetObj =>
-    val budget = dboToGoogleEntity[Budget](budgetObj, "budget", None)
-    budget.getName -> budget.getBudgetId
-  }
+  // TODO: Re-implement with async MongoDB queries via MongoService
+  // These lazy vals used the old synchronous Casbah driver and AdWords API types.
+  // They should become methods on an injectable GoogleDataService class.
 }

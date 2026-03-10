@@ -1,55 +1,58 @@
 package helpers.google.mcc.account.campaign.adgroup.criterion
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Forms._
 import play.api.data.format.Formats._
 import play.api.data.{Form, Forms}
 
 import scala.collection.immutable.List
+import scala.jdk.CollectionConverters._
 
 object KeywordControllerHelper {
   case class KeywordForm(
-    var parent: controllers.Google.AdGroupCriterionParent,
-    var apiId: Option[Long],
-    var criterionUse: String,
-    var text: String,
-    var matchType: String,
-    var userStatus: Option[String],
-    var systemServingStatus: Option[String],
-    var approvalStatus: Option[String],
-    var disapprovalReasons: Option[List[String]],
-    var destinationUrl: Option[String],
-    var finalUrl: Option[String],
-    var finalMobileUrl: Option[String],
-    var customParameters: Option[List[controllers.Google.CustomParameter]],
-    var firstPageCpcAmount: Option[Long],
-    var topOfPageCpcAmount: Option[Long],
-    var bidModifier: Option[Double]
+    parent: controllers.Google.AdGroupCriterionParent,
+    apiId: Option[Long],
+    criterionUse: String,
+    text: String,
+    matchType: String,
+    userStatus: Option[String],
+    systemServingStatus: Option[String],
+    approvalStatus: Option[String],
+    disapprovalReasons: Option[List[String]],
+    destinationUrl: Option[String],
+    finalUrl: Option[String],
+    finalMobileUrl: Option[String],
+    customParameters: Option[List[controllers.Google.CustomParameter]],
+    firstPageCpcAmount: Option[Long],
+    topOfPageCpcAmount: Option[Long],
+    bidModifier: Option[Double]
   )
 
-  def dboToAdGroupKeywordForm(dbo: DBObject) = KeywordForm(
-    parent=controllers.Google.dboToAdGroupCriterionParent(dbo.getAs[DBObject]("parent").get),
-    apiId=dbo.getAsOrElse[Option[Long]]("apiId", None),
-    criterionUse=dbo.getAsOrElse[String]("criterionUse", ""),
-    text=dbo.getAsOrElse[String]("text", ""),
-    matchType=dbo.getAsOrElse[String]("matchType", ""),
-    userStatus=dbo.getAsOrElse[Option[String]]("userStatus", None),
-    systemServingStatus=dbo.getAsOrElse[Option[String]]("systemServingStatus", None),
-    approvalStatus=dbo.getAsOrElse[Option[String]]("approvalStatus", None),
-    disapprovalReasons=dbo.getAsOrElse[Option[List[String]]]("disapprovalReasons", None),
-    destinationUrl=dbo.getAsOrElse[Option[String]]("destinationUrl", None),
-    finalUrl=dbo.getAsOrElse[Option[String]]("finalUrl", None),
-    finalMobileUrl=dbo.getAsOrElse[Option[String]]("finalMobileUrl", None),
-    customParameters=Some(dbo.getAsOrElse[List[DBObject]]("customParameters", List()).map(x =>
-      controllers.Google.dboToCustomParameter(x))
+  def documentToAdGroupKeywordForm(dbo: Document) = KeywordForm(
+    parent=controllers.Google.documentToAdGroupCriterionParent(Option(dbo.toBsonDocument.get("parent")).filter(_.isDocument).map(v => Document(v.asDocument())).get),
+    apiId=Option(dbo.getLong("apiId")).map(_.toLong),
+    criterionUse=Option(dbo.getString("criterionUse")).getOrElse(""),
+    text=Option(dbo.getString("text")).getOrElse(""),
+    matchType=Option(dbo.getString("matchType")).getOrElse(""),
+    userStatus=Option(dbo.getString("userStatus")),
+    systemServingStatus=Option(dbo.getString("systemServingStatus")),
+    approvalStatus=Option(dbo.getString("approvalStatus")),
+    disapprovalReasons=Option(dbo.getList("disapprovalReasons", classOf[String])).map(_.asScala.toList),
+    destinationUrl=Option(dbo.getString("destinationUrl")),
+    finalUrl=Option(dbo.getString("finalUrl")),
+    finalMobileUrl=Option(dbo.getString("finalMobileUrl")),
+    customParameters=Some(Option(dbo.getList("customParameters", classOf[Document])).map(_.asScala.toList).getOrElse(List()).map(x =>
+      controllers.Google.documentToCustomParameter(x))
     ),
-    firstPageCpcAmount=dbo.getAsOrElse[Option[Long]]("firstPageCpcAmount", None),
-    topOfPageCpcAmount=dbo.getAsOrElse[Option[Long]]("topOfPageCpcAmount", None),
-    bidModifier=dbo.getAsOrElse[Option[Double]]("bidModifier", None)
+    firstPageCpcAmount=Option(dbo.getLong("firstPageCpcAmount")).map(_.toLong),
+    topOfPageCpcAmount=Option(dbo.getLong("topOfPageCpcAmount")).map(_.toLong),
+    bidModifier=Option(dbo.getDouble("bidModifier")).map(_.toDouble)
   )
 
-  def adGroupKeywordFormToDbo(kf: KeywordForm) = DBObject(
-    "parent" -> controllers.Google.adGroupCriterionParentToDbo(kf.parent),
+  def adGroupKeywordFormToDocument(kf: KeywordForm) = Document(
+    "parent" -> controllers.Google.adGroupCriterionParentToDocument(kf.parent),
     "apiId" -> kf.apiId,
     "criterionUse" -> kf.criterionUse,
     "text" -> kf.text,
@@ -61,7 +64,7 @@ object KeywordControllerHelper {
     "destinationUrl" -> kf.destinationUrl,
     "finalUrl" -> kf.finalUrl,
     "finalMobileUrl" -> kf.finalMobileUrl,
-    "customParameters" -> kf.customParameters.getOrElse(List()).map(x => controllers.Google.customParameterToDbo(x)),
+    "customParameters" -> kf.customParameters.getOrElse(List()).map(x => controllers.Google.customParameterToDocument(x)),
     "firstPageCpcAmount" -> kf.firstPageCpcAmount,
     "topOfPageCpcAmount" -> kf.topOfPageCpcAmount,
     "bidModifier" -> kf.bidModifier

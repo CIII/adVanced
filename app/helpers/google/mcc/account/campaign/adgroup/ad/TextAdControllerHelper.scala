@@ -1,45 +1,48 @@
 package helpers.google.mcc.account.campaign.adgroup.ad
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import controllers.Google.AdGroupAdForm
 import play.api.data.Form
 import play.api.data.Forms._
 
 import scala.collection.immutable.List
+import scala.jdk.CollectionConverters._
 
 object TextAdControllerHelper {
   case class TextAdForm(
-    var parent: controllers.Google.AdGroupAdParent,
-    var apiId: Option[Long],
-    var url: Option[String],
-    var displayUrl: Option[String],
-    var devicePreference: Option[Long],
-    var headline: Option[String],
-    var description1: Option[String],
-    var description2: Option[String],
-    var status: Option[String],
-    var approvalStatus: Option[String],
-    var disapprovalReasons: Option[List[String]],
-    var trademarkDisapproved: Option[Boolean]
+    parent: controllers.Google.AdGroupAdParent,
+    apiId: Option[Long],
+    url: Option[String],
+    displayUrl: Option[String],
+    devicePreference: Option[Long],
+    headline: Option[String],
+    description1: Option[String],
+    description2: Option[String],
+    status: Option[String],
+    approvalStatus: Option[String],
+    disapprovalReasons: Option[List[String]],
+    trademarkDisapproved: Option[Boolean]
   ) extends AdGroupAdForm
 
-  def dboToTextAdForm(dbo: DBObject) = TextAdForm(
-    parent = controllers.Google.dboToAdGroupAdParent(dbo.as[DBObject]("parent")),
-    apiId = dbo.getAsOrElse[Option[Long]]("apiId", None),
-    url = dbo.getAsOrElse[Option[String]]("url", None),
-    displayUrl = dbo.getAsOrElse[Option[String]]("displayUrl", None),
-    devicePreference = dbo.getAsOrElse[Option[Long]]("devicePreference", None),
-    headline = dbo.getAsOrElse[Option[String]]("headline", None),
-    description1 = dbo.getAsOrElse[Option[String]]("description1", None),
-    description2 = dbo.getAsOrElse[Option[String]]("description2", None),
-    status = dbo.getAsOrElse[Option[String]]("status", None),
-    approvalStatus = dbo.getAsOrElse[Option[String]]("approvalStatus", None),
-    disapprovalReasons = dbo.getAsOrElse[Option[List[String]]]("disapprovalReasons", None),
-    trademarkDisapproved = dbo.getAsOrElse[Option[Boolean]]("trademarkDisapproved", None)
+  def documentToTextAdForm(dbo: Document) = TextAdForm(
+    parent = controllers.Google.documentToAdGroupAdParent(Option(dbo.toBsonDocument.get("parent")).map(v => Document(v.asDocument())).get),
+    apiId = Option(dbo.getLong("apiId")).map(_.toLong),
+    url = Option(dbo.getString("url")),
+    displayUrl = Option(dbo.getString("displayUrl")),
+    devicePreference = Option(dbo.getLong("devicePreference")).map(_.toLong),
+    headline = Option(dbo.getString("headline")),
+    description1 = Option(dbo.getString("description1")),
+    description2 = Option(dbo.getString("description2")),
+    status = Option(dbo.getString("status")),
+    approvalStatus = Option(dbo.getString("approvalStatus")),
+    disapprovalReasons = Option(dbo.getList("disapprovalReasons", classOf[String])).map(_.asScala.toList),
+    trademarkDisapproved = Option(dbo.getBoolean("trademarkDisapproved")).map(_.booleanValue())
   )
 
-  def textAdFormToDbo(taf: TextAdForm) = DBObject(
-    "parent" -> controllers.Google.adGroupAdParentToDbo(taf.parent),
+  def textAdFormToDocument(taf: TextAdForm) = Document(
+    "parent" -> controllers.Google.adGroupAdParentToDocument(taf.parent),
     "apiId" -> taf.apiId,
     "url" -> taf.url,
     "displayUrl" -> taf.displayUrl,

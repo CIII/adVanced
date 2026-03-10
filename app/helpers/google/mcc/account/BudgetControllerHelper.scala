@@ -1,21 +1,23 @@
 package helpers.google.mcc.account
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Form
 import play.api.data.Forms._
 
 object BudgetControllerHelper {
   case class BudgetForm(
-    var apiId: Option[Long],
-    var name: String,
-    var amount: Option[Long],
-    var deliveryMethod: Option[String],
-    var isExplicitlyShared: Option[Boolean],
-    var status: Option[String]
+    apiId: Option[Long],
+    name: String,
+    amount: Option[Long],
+    deliveryMethod: Option[String],
+    isExplicitlyShared: Option[Boolean],
+    status: Option[String]
   )
 
-  def budgetFormToDbo(bf: BudgetForm): DBObject = {
-    DBObject(
+  def budgetFormToDocument(bf: BudgetForm): Document = {
+    Document(
       "apiId" -> bf.apiId,
       "name" -> bf.name,
       "amount" -> bf.amount,
@@ -25,14 +27,14 @@ object BudgetControllerHelper {
     )
   }
 
-  def dboToBudgetForm(dbo: DBObject): BudgetForm = {
+  def documentToBudgetForm(dbo: Document): BudgetForm = {
     BudgetForm(
-      apiId = dbo.getAsOrElse[Option[Long]]("apiId", None),
-      name = dbo.getAsOrElse[String]("name", ""),
-      amount = dbo.getAsOrElse[Option[Long]]("periodAmount", None),
-      deliveryMethod = dbo.getAsOrElse[Option[String]]("deliveryMethod", None),
-      isExplicitlyShared = dbo.getAsOrElse[Option[Boolean]]("isExplicitlyShared", None),
-      status = dbo.getAsOrElse[Option[String]]("status", None)
+      apiId = Option(dbo.getLong("apiId")).map(_.toLong),
+      name = Option(dbo.getString("name")).getOrElse(""),
+      amount = Option(dbo.getLong("periodAmount")).map(_.toLong),
+      deliveryMethod = Option(dbo.getString("deliveryMethod")),
+      isExplicitlyShared = Option(dbo.getBoolean("isExplicitlyShared")).map(_.booleanValue()),
+      status = Option(dbo.getString("status"))
     )
   }
 

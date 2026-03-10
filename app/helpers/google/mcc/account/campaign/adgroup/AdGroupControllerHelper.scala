@@ -1,49 +1,51 @@
 package helpers.google.mcc.account.campaign.adgroup
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.data.format.Formats._
 
 object AdGroupControllerHelper {
   case class AdGroupParent(
-    var mccObjId: Option[String],
-    var customerApiId: Option[Long],
-    var campaignApiId: Option[Long]
+    mccObjId: Option[String],
+    customerApiId: Option[Long],
+    campaignApiId: Option[Long]
   )
 
-  def dboToAdGroupParent(dbo: DBObject) = AdGroupParent(
-    mccObjId=dbo.getAsOrElse[Option[String]]("mccObjId", None),
-    customerApiId=dbo.getAsOrElse[Option[Long]]("customerApiId", None),
-    campaignApiId=dbo.getAsOrElse[Option[Long]]("campaignApiId", None)
+  def documentToAdGroupParent(dbo: Document) = AdGroupParent(
+    mccObjId=Option(dbo.getString("mccObjId")),
+    customerApiId=Option(dbo.getLong("customerApiId")).map(_.toLong),
+    campaignApiId=Option(dbo.getLong("campaignApiId")).map(_.toLong)
   )
 
-  def adGroupParentToDbo(agp: AdGroupParent) = DBObject(
+  def adGroupParentToDocument(agp: AdGroupParent) = Document(
     "mccObjId" -> agp.mccObjId,
     "customerApiId" -> agp.customerApiId,
     "campaignApiId" -> agp.campaignApiId
   )
 
   case class AdGroupForm(
-    var parent: AdGroupParent,
-    var apiId: Option[Long],
-    var name: String,
-    var status: String,
-    var maxCpc: Option[Double],
-    var contentBidCriterionTypeGroup: Option[String]
+    parent: AdGroupParent,
+    apiId: Option[Long],
+    name: String,
+    status: String,
+    maxCpc: Option[Double],
+    contentBidCriterionTypeGroup: Option[String]
   )
 
-  def dboToAdGroupForm(dbo: DBObject) = AdGroupForm(
-    parent=dboToAdGroupParent(dbo.as[DBObject]("parent")),
-    apiId=dbo.getAsOrElse[Option[Long]]("apiId", None),
-    name=dbo.getAsOrElse[String]("name", ""),
-    status=dbo.getAsOrElse[String]("status", ""),
-    maxCpc=dbo.getAsOrElse[Option[Double]]("maxCpc", None),
-    contentBidCriterionTypeGroup=dbo.getAsOrElse[Option[String]]("contentBidCriterionTypeGroup", None)
+  def documentToAdGroupForm(dbo: Document) = AdGroupForm(
+    parent=documentToAdGroupParent(Option(dbo.toBsonDocument.get("parent")).map(v => Document(v.asDocument())).get),
+    apiId=Option(dbo.getLong("apiId")).map(_.toLong),
+    name=Option(dbo.getString("name")).getOrElse(""),
+    status=Option(dbo.getString("status")).getOrElse(""),
+    maxCpc=Option(dbo.getDouble("maxCpc")).map(_.toDouble),
+    contentBidCriterionTypeGroup=Option(dbo.getString("contentBidCriterionTypeGroup"))
   )
 
-  def adGroupFormToDbo(agf: AdGroupForm) = DBObject(
-    "parent" -> adGroupParentToDbo(agf.parent),
+  def adGroupFormToDocument(agf: AdGroupForm) = Document(
+    "parent" -> adGroupParentToDocument(agf.parent),
     "apiId" -> agf.apiId,
     "name" -> agf.name,
     "status" -> agf.status,

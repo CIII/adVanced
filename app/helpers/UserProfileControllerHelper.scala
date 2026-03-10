@@ -11,12 +11,12 @@ import scala.collection.immutable.List
 object UserProfileControllerHelper {
   case class UserProfileForm(
     _id: Option[String],
-    var username: String,
-    var password: String,
-    var email: String,
-    var advertiserIds: Option[String],
-    var security_roles: List[String],
-    var security_roles_str: Option[String]
+    username: String,
+    password: String,
+    email: String,
+    advertiserIds: Option[String],
+    security_roles: List[String],
+    security_roles_str: Option[String]
   )
   
   def userProfileForm: Form[UserProfileForm] = Form(

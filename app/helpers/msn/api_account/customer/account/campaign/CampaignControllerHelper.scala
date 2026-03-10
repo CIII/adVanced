@@ -1,6 +1,8 @@
 package helpers.msn.api_account.customer.account.campaign
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.data.format.Formats._
@@ -16,16 +18,16 @@ object CampaignControllerHelper {
   )
 
 
-  def dboToCampaignForm(dbo: DBObject) = CampaignForm(
-    name=dbo.getAsOrElse[String]("name", ""),
-    description=dbo.getAsOrElse[Option[String]]("description", None),
-    budgetType=dbo.getAsOrElse[Option[String]]("budgetType", None),
-    dailyBudget=dbo.getAsOrElse[Option[Double]]("dailyBudget", None),
-    status=dbo.getAsOrElse[String]("status", ""),
-    timeZone=dbo.getAsOrElse[String]("timeZone", "")
+  def documentToCampaignForm(dbo: Document) = CampaignForm(
+    name=Option(dbo.getString("name")).getOrElse(""),
+    description=Option(dbo.getString("description")),
+    budgetType=Option(dbo.getString("budgetType")),
+    dailyBudget=Option(dbo.getDouble("dailyBudget")).map(_.toDouble),
+    status=Option(dbo.getString("status")).getOrElse(""),
+    timeZone=Option(dbo.getString("timeZone")).getOrElse("")
   )
 
-  def campaignFormToDbo(cf: CampaignForm) = DBObject(
+  def campaignFormToDocument(cf: CampaignForm) = Document(
     "name" -> cf.name,
     "description" -> cf.description,
     "budgetType" -> cf.budgetType,

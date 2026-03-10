@@ -6,10 +6,10 @@ import play.api.data.Forms._
 
 object LoginControllerHelper {
   case class PasswordChange(
-    var username: String,
-    var currentPassword: String,
-    var newPassword: String,
-    var confirmNewPassword: String
+    username: String,
+    currentPassword: String,
+    newPassword: String,
+    confirmNewPassword: String
   )
 
   def passwordChangeForm: Form[PasswordChange] = Form(

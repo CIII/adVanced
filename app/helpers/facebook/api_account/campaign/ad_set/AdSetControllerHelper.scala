@@ -1,9 +1,13 @@
 package helpers.facebook.api_account.campaign.ad_set
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import org.joda.time.DateTime
 import play.api.data.{Form, Forms}
 import play.api.data.Forms._
+import scala.jdk.CollectionConverters._
+import Shared.Shared.jodaDate
 
 object AdSetControllerHelper {
   lazy val optimizationGoalOptions = Seq(
@@ -47,34 +51,49 @@ object AdSetControllerHelper {
     "MRC_VIDEO_VIEWS" -> "MRC Video Views"
   )
 
-  case class AdSetForm(
-    var parent: AdSetParent,
-    var apiId: Option[String],
-    var accountId: String,
-    var adLabels: Option[List[String]],
-    var bidAmount: Long,
-    var billingEvent: String,
-    var budgetRemaining: Option[Long],
-    var campaignId: String,
-    var configuredStatus: String,
-    var createdTime: DateTime,
-    var dailyBudget: Option[Long],
-    var endTime: Option[DateTime],
-    var frequencyCap: Option[Int],
-    var frequencyCapResetPeriod: Option[Int],
-    var isAutoBid: Boolean,
-    var lifetimeBudget: Option[Long],
-    var effectiveStatus: Option[String],
-    var name: String,
-    var optimizationGoal: Option[String],
-    var startTime: Option[DateTime],
-    var status: Option[String],
-    var updatedTime: Option[String]
+  case class AdSetParent(
+    apiAccountObjId: Option[String],
+    campaignApiId: Option[String]
   )
 
-  def adSetFormToDbo(asf: AdSetForm): DBObject = {
-    DBObject(
-      "parent" -> adSetParentToDbo(asf.parent),
+  def adSetParentToDocument(asp: AdSetParent): Document = Document(
+    "apiAccountObjId" -> asp.apiAccountObjId,
+    "campaignApiId" -> asp.campaignApiId
+  )
+
+  def documentToAdSetParent(dbo: Document): AdSetParent = AdSetParent(
+    apiAccountObjId = Option(dbo.getString("apiAccountObjId")),
+    campaignApiId = Option(dbo.getString("campaignApiId"))
+  )
+
+  case class AdSetForm(
+    parent: AdSetParent,
+    apiId: Option[String],
+    accountId: String,
+    adLabels: Option[List[String]],
+    bidAmount: Long,
+    billingEvent: String,
+    budgetRemaining: Option[Long],
+    campaignId: String,
+    configuredStatus: String,
+    createdTime: DateTime,
+    dailyBudget: Option[Long],
+    endTime: Option[DateTime],
+    frequencyCap: Option[Int],
+    frequencyCapResetPeriod: Option[Int],
+    isAutoBid: Boolean,
+    lifetimeBudget: Option[Long],
+    effectiveStatus: Option[String],
+    name: String,
+    optimizationGoal: Option[String],
+    startTime: Option[DateTime],
+    status: Option[String],
+    updatedTime: Option[String]
+  )
+
+  def adSetFormToDocument(asf: AdSetForm): Document = {
+    Document(
+      "parent" -> adSetParentToDocument(asf.parent),
       "apiId" -> asf.apiId,
       "accountId" -> asf.accountId,
       "adLabels" -> asf.adLabels,
@@ -83,9 +102,9 @@ object AdSetControllerHelper {
       "budgetRemaining" -> asf.budgetRemaining,
       "campaignId" -> asf.campaignId,
       "configuredStatus" -> asf.configuredStatus,
-      "createdTime" -> asf.createdTime,
+      "createdTime" -> asf.createdTime.getMillis,
       "dailyBudget" -> asf.dailyBudget,
-      "endTime" -> asf.endTime,
+      "endTime" -> asf.endTime.map(_.getMillis),
       "frequencyCap" -> asf.frequencyCap,
       "frequencyCapResetPeriod" -> asf.frequencyCapResetPeriod,
       "isAutoBid" -> asf.isAutoBid,
@@ -93,36 +112,36 @@ object AdSetControllerHelper {
       "effectiveStatus" -> asf.effectiveStatus,
       "name" -> asf.name,
       "optimizationGoal" -> asf.optimizationGoal,
-      "startTime" -> asf.startTime,
+      "startTime" -> asf.startTime.map(_.getMillis),
       "status" -> asf.status,
       "updatedTime" -> asf.updatedTime
     )
   }
 
-  def dboToAdSetForm(dbo: DBObject): AdSetForm = {
+  def documentToAdSetForm(dbo: Document): AdSetForm = {
     AdSetForm(
-      parent=dboToAdSetParent(dbo.as[DBObject]("parent")),
-      apiId = dbo.getAs[String]("apiId"),
+      parent=documentToAdSetParent(Option(dbo.toBsonDocument.get("parent")).map(v => Document(v.asDocument())).get),
+      apiId = Option(dbo.getString("apiId")),
       accountId = dbo.get("accountId").toString,
-      adLabels = dbo.getAs[List[String]]("adLabels"),
+      adLabels = Option(dbo.getList("adLabels", classOf[String])).map(_.asScala.toList),
       bidAmount = dbo.get("bidAmount").asInstanceOf[Long],
       billingEvent = dbo.get("billingEvent").toString,
-      budgetRemaining = dbo.getAs[Long]("budgetRemaining"),
+      budgetRemaining = Option(dbo.getLong("budgetRemaining")).map(_.toLong),
       campaignId = dbo.get("campaignId").toString,
       configuredStatus = dbo.get("configuredStatus").toString,
-      createdTime = dbo.getAsOrElse[DateTime]("createdTime", DateTime.now),
-      dailyBudget = dbo.getAs[Long]("dailyBudget"),
-      endTime = dbo.getAs[DateTime]("endTime"),
-      frequencyCap = dbo.getAs[Int]("frequencyCap"),
-      frequencyCapResetPeriod = dbo.getAs[Int]("frequencyCapResetPeriod"),
+      createdTime = Option(dbo.get("createdTime")).map(v => new DateTime(v)).getOrElse(DateTime.now),
+      dailyBudget = Option(dbo.getLong("dailyBudget")).map(_.toLong),
+      endTime = Option(dbo.get("endTime")).map(v => new DateTime(v)),
+      frequencyCap = Option(dbo.getInteger("frequencyCap")).map(_.intValue()),
+      frequencyCapResetPeriod = Option(dbo.getInteger("frequencyCapResetPeriod")).map(_.intValue()),
       isAutoBid = dbo.get("isAutoBid").asInstanceOf[Boolean],
-      lifetimeBudget = dbo.getAs[Long]("lifetimeBudget"),
-      effectiveStatus = dbo.getAs[String]("effectiveStatus"),
-      name = dbo.getAsOrElse[String]("name", ""),
-      optimizationGoal = dbo.getAs[String]("optimizationGoal"),
-      startTime = dbo.getAs[DateTime]("startTime"),
-      status = dbo.getAs[String]("status"),
-      updatedTime = dbo.getAs[String]("updatedTime")
+      lifetimeBudget = Option(dbo.getLong("lifetimeBudget")).map(_.toLong),
+      effectiveStatus = Option(dbo.getString("effectiveStatus")),
+      name = Option(dbo.getString("name")).getOrElse(""),
+      optimizationGoal = Option(dbo.getString("optimizationGoal")),
+      startTime = Option(dbo.get("startTime")).map(v => new DateTime(v)),
+      status = Option(dbo.getString("status")),
+      updatedTime = Option(dbo.getString("updatedTime"))
     )
   }
 
@@ -153,6 +172,6 @@ object AdSetControllerHelper {
       "startTime" -> optional(jodaDate),
       "Status" -> optional(text),
       "updatedTime" -> optional(text)
-    )(AdSetForm.apply)(AdSetForm.unapply)
+    )(AdSetForm.apply)(AdSetForm.unapply _)
   )
 }

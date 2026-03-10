@@ -1,11 +1,15 @@
 package helpers.msn.api_account.customer.account.campaign.adgroup
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.data.format.Formats._
 
 import scala.collection.immutable.List
+import scala.jdk.CollectionConverters._
+import Shared.Shared.jodaDate
 
 object AdGroupControllerHelper {
   case class AdGroupForm(
@@ -23,26 +27,26 @@ object AdGroupControllerHelper {
     status: String
   )
 
-  def dboToAdGroupForm(dbo: DBObject) = AdGroupForm(
-    apiId=dbo.getAsOrElse[Option[Long]]("apiId", None),
-    name=dbo.getAs[String]("name").get,
-    startDate=Some(new org.joda.time.DateTime(dbo.getAsOrElse[Option[Long]]("startDate", None).getOrElse(0))),
-    endDate=Some(new org.joda.time.DateTime(dbo.getAsOrElse[Option[Long]]("endDate", None).getOrElse(0))),
-    adDistribution=dbo.getAsOrElse[List[String]]("adDistribution", List()),
-    adRotationType=dbo.getAs[String]("adRotationType").get,
-    biddingScheme=dbo.getAs[String]("biddingScheme").get,
-    contentMatchBid=dbo.getAsOrElse[Option[Double]]("contentMatchBid", None),
-    network=dbo.getAsOrElse[Option[String]]("network", None),
-    pricingModel=dbo.getAs[String]("pricingModel"),
-    language=dbo.getAsOrElse[String]("language", ""),
-    status=dbo.getAsOrElse[String]("status", "")
+  def documentToAdGroupForm(dbo: Document) = AdGroupForm(
+    apiId=Option(dbo.getLong("apiId")).map(_.toLong),
+    name=dbo.getString("name"),
+    startDate=Some(new org.joda.time.DateTime(Option(dbo.getLong("startDate")).map(_.toLong).getOrElse(0L))),
+    endDate=Some(new org.joda.time.DateTime(Option(dbo.getLong("endDate")).map(_.toLong).getOrElse(0L))),
+    adDistribution=Option(dbo.getList("adDistribution", classOf[String])).map(_.asScala.toList).getOrElse(List()),
+    adRotationType=dbo.getString("adRotationType"),
+    biddingScheme=dbo.getString("biddingScheme"),
+    contentMatchBid=Option(dbo.getDouble("contentMatchBid")).map(_.toDouble),
+    network=Option(dbo.getString("network")),
+    pricingModel=Option(dbo.getString("pricingModel")),
+    language=Option(dbo.getString("language")).getOrElse(""),
+    status=Option(dbo.getString("status")).getOrElse("")
   )
 
-  def adGroupFormToDbo(agf: AdGroupForm) = DBObject(
+  def adGroupFormToDocument(agf: AdGroupForm) = Document(
     "apiId" -> agf.apiId,
     "name" -> agf.name,
-    "startDate" -> agf.startDate.getOrElse(new org.joda.time.DateTime()),
-    "endDate" -> agf.endDate.getOrElse(new org.joda.time.DateTime()),
+    "startDate" -> agf.startDate.getOrElse(new org.joda.time.DateTime()).getMillis,
+    "endDate" -> agf.endDate.getOrElse(new org.joda.time.DateTime()).getMillis,
     "adDistribution" -> agf.adDistribution,
     "adRotationType" -> agf.adRotationType,
     "biddingScheme" -> agf.biddingScheme,
@@ -67,6 +71,6 @@ object AdGroupControllerHelper {
       "pricing_model" -> optional(text),
       "language" -> nonEmptyText,
       "status" -> nonEmptyText
-    )(AdGroupForm.apply)(AdGroupForm.unapply)
+    )(AdGroupForm.apply)(AdGroupForm.unapply _)
   )
 }

@@ -1,44 +1,48 @@
 package helpers.facebook.api_account.campaign
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import org.joda.time.DateTime
 import play.api.data.{Form, Forms}
 import play.api.data.Forms.{longNumber, mapping, optional, text}
+import scala.jdk.CollectionConverters._
+import Shared.Shared.jodaDate
 
 object CampaignControllerHelper {
   case class CampaignParent(
-    var apiAccountObjId: Option[String]
+    apiAccountObjId: Option[String]
   )
 
-  def campaignParentToDbo(cp: CampaignParent) = DBObject(
+  def campaignParentToDocument(cp: CampaignParent) = Document(
     "apiAccountObjId" -> cp.apiAccountObjId
   )
 
-  def dboToCampaignParent(dbo: DBObject) = CampaignParent(
-    apiAccountObjId=dbo.getAsOrElse[Option[String]]("apiAccountObjId", None)
+  def documentToCampaignParent(dbo: Document) = CampaignParent(
+    apiAccountObjId=Option(dbo.getString("apiAccountObjId"))
   )
 
   case class CampaignForm(
-    var apiId: Option[String],
-    var accountId: String,
-    var adLabels: Option[List[String]],
-    var budgetRebalanceFlag: Boolean,
-    var buyingType: String,
-    var canUseSpendCap: Boolean,
-    var configuredStatus: String,
-    var createdTime: Option[String],
-    var effectiveStatus: String,
-    var name: String,
-    var objective: Option[String],
-    var spendCap: Option[Long],
-    var startTime: Option[DateTime],
-    var status: Option[String],
-    var stopTime: Option[DateTime],
-    var updatedTime: Option[DateTime]
+    apiId: Option[String],
+    accountId: String,
+    adLabels: Option[List[String]],
+    budgetRebalanceFlag: Boolean,
+    buyingType: String,
+    canUseSpendCap: Boolean,
+    configuredStatus: String,
+    createdTime: Option[String],
+    effectiveStatus: String,
+    name: String,
+    objective: Option[String],
+    spendCap: Option[Long],
+    startTime: Option[DateTime],
+    status: Option[String],
+    stopTime: Option[DateTime],
+    updatedTime: Option[DateTime]
   )
 
-  def campaignFormToDbo(cf: CampaignForm): DBObject = {
-    DBObject(
+  def campaignFormToDocument(cf: CampaignForm): Document = {
+    Document(
       "apiId" -> cf.apiId,
       "accountId" -> cf.accountId,
       "adLabels" -> cf.adLabels,
@@ -51,31 +55,31 @@ object CampaignControllerHelper {
       "name" -> cf.name,
       "objective" -> cf.objective,
       "spendCap" -> cf.spendCap,
-      "startTime" -> cf.startTime,
+      "startTime" -> cf.startTime.map(_.getMillis),
       "status" -> cf.status,
-      "stopTime" -> cf.stopTime,
-      "updatedTime" -> cf.updatedTime
+      "stopTime" -> cf.stopTime.map(_.getMillis),
+      "updatedTime" -> cf.updatedTime.map(_.getMillis)
     )
   }
 
-  def dboToCampaignForm(dbo: DBObject): CampaignForm = {
+  def documentToCampaignForm(dbo: Document): CampaignForm = {
     CampaignForm(
-      apiId = dbo.getAsOrElse[Option[String]]("apiId", None),
+      apiId = Option(dbo.getString("apiId")),
       accountId = dbo.get("accountId").asInstanceOf[String],
-      adLabels = dbo.getAs[List[String]]("adLabels"),
+      adLabels = Option(dbo.getList("adLabels", classOf[String])).map(_.asScala.toList),
       budgetRebalanceFlag = dbo.get("budgetRebalanceFlag").asInstanceOf[Boolean],
       buyingType = dbo.get("buyingType").asInstanceOf[String],
       canUseSpendCap = dbo.get("canUseSpendCap").asInstanceOf[Boolean],
       configuredStatus = dbo.get("configuredStatus").asInstanceOf[String],
-      createdTime = dbo.getAs[String]("createdTime"),
+      createdTime = Option(dbo.getString("createdTime")),
       effectiveStatus = dbo.get("effectiveStatus").asInstanceOf[String],
       name = dbo.get("name").asInstanceOf[String],
-      objective = dbo.getAs[String]("objective"),
-      spendCap = dbo.getAs[Long]("spendCap"),
-      startTime = dbo.getAs[DateTime]("startTime"),
-      status = dbo.getAs[String]("status"),
-      stopTime = dbo.getAs[DateTime]("stopTime"),
-      updatedTime = dbo.getAs[DateTime]("updatedTime")
+      objective = Option(dbo.getString("objective")),
+      spendCap = Option(dbo.getLong("spendCap")).map(_.toLong),
+      startTime = Option(dbo.get("startTime")).map(v => new DateTime(v)),
+      status = Option(dbo.getString("status")),
+      stopTime = Option(dbo.get("stopTime")).map(v => new DateTime(v)),
+      updatedTime = Option(dbo.get("updatedTime")).map(v => new DateTime(v))
     )
   }
 
@@ -93,10 +97,10 @@ object CampaignControllerHelper {
       "name" -> text,
       "objective" -> optional(text),
       "spendCap" -> optional(longNumber),
-      "startTime" -> optional(Forms.jodaDate),
+      "startTime" -> optional(jodaDate),
       "status" -> optional(text),
-      "stopTime" -> optional(Forms.jodaDate),
-      "updatedTime" -> optional(Forms.jodaDate)
-    )(CampaignForm.apply)(CampaignForm.unapply)
+      "stopTime" -> optional(jodaDate),
+      "updatedTime" -> optional(jodaDate)
+    )(CampaignForm.apply)(CampaignForm.unapply _)
   )
 }

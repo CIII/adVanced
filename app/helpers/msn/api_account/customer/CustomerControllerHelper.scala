@@ -1,6 +1,8 @@
 package helpers.msn.api_account.customer
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.data.Form
 import play.api.data.Forms._
 
@@ -19,18 +21,18 @@ object CustomerControllerHelper {
     countryCode: Option[String]
   )
 
-  def dboToCustomerAddress(dbo: DBObject) = CustomerAddress(
-    line1=dbo.getAsOrElse[Option[String]]("line1", None),
-    line2=dbo.getAsOrElse[Option[String]]("line2", None),
-    line3=dbo.getAsOrElse[Option[String]]("line3", None),
-    line4=dbo.getAsOrElse[Option[String]]("line4", None),
-    city=dbo.getAsOrElse[Option[String]]("city", None),
-    stateOrProvince=dbo.getAsOrElse[Option[String]]("stateOrProvince", None),
-    postalCode=dbo.getAsOrElse[Option[String]]("postalCode", None),
-    countryCode=dbo.getAsOrElse[Option[String]]("countryCode", None)
+  def documentToCustomerAddress(dbo: Document) = CustomerAddress(
+    line1=Option(dbo.getString("line1")),
+    line2=Option(dbo.getString("line2")),
+    line3=Option(dbo.getString("line3")),
+    line4=Option(dbo.getString("line4")),
+    city=Option(dbo.getString("city")),
+    stateOrProvince=Option(dbo.getString("stateOrProvince")),
+    postalCode=Option(dbo.getString("postalCode")),
+    countryCode=Option(dbo.getString("countryCode"))
   )
 
-  def customerAddressToDbo(ca: CustomerAddress) = DBObject(
+  def customerAddressToDocument(ca: CustomerAddress) = Document(
     "line1" -> ca.line1,
     "line2" -> ca.line2,
     "line3" -> ca.line3,
@@ -48,18 +50,18 @@ object CustomerControllerHelper {
     customerAddress: CustomerAddress
   )
 
-  def dboToCustomerForm(dbo: DBObject) = CustomerForm(
-    customerApiId = dbo.getAsOrElse[Option[Long]]("customerApiId", None),
-    customerNumber = dbo.getAsOrElse[Option[String]]("customerNumber", None),
-    name = dbo.getAsOrElse[String]("name", ""),
-    customerAddress = dboToCustomerAddress(dbo.getAs[DBObject]("customerAddress").get)
+  def documentToCustomerForm(dbo: Document) = CustomerForm(
+    customerApiId = Option(dbo.getLong("customerApiId")).map(_.toLong),
+    customerNumber = Option(dbo.getString("customerNumber")),
+    name = Option(dbo.getString("name")).getOrElse(""),
+    customerAddress = documentToCustomerAddress(Option(dbo.toBsonDocument.get("customerAddress")).filter(_.isDocument).map(v => Document(v.asDocument())).get)
   )
 
-  def customerFormToDbo(cf: CustomerForm) = DBObject(
+  def customerFormToDocument(cf: CustomerForm) = Document(
     "customerApiId" -> cf.customerApiId,
     "customerNumber" -> cf.customerNumber,
     "name" -> cf.name,
-    "customerAddress" -> customerAddressToDbo(cf.customerAddress)
+    "customerAddress" -> customerAddressToDocument(cf.customerAddress)
   )
 
   def customerForm: Form[CustomerForm] = Form(

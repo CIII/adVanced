@@ -9,8 +9,7 @@ import be.objectify.deadbolt.scala.AuthenticatedRequest
 import play.api.mvc.AnyContent
 import models.mongodb.google.Google._
 import org.joda.time.DateTime
-import com.mongodb.casbah.commons.MongoDBObject
-import com.mongodb.casbah.Imports.DBObject
+import org.mongodb.scala.bson.Document
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 import util.charts.performance.PerformanceChart
@@ -102,7 +101,7 @@ object DashboardControllerHelper {
           GooglePerformance.costField,
           GooglePerformance.clicksField
         ),
-        googleReportCollection(com.google.api.ads.adwords.lib.jaxb.v201609.ReportDefinitionReportType.CAMPAIGN_PERFORMANCE_REPORT),
+        googleReportCollection("CAMPAIGN_PERFORMANCE_REPORT"),
         PerformanceEntityFactory.createGoogleCampaignPerformance
       )
       

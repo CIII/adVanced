@@ -5,14 +5,14 @@ import play.api.data.Forms._
 
 object NotificationConfigurationControllerHelper {
   case class NotificationForm(
-    var userId: String,
-    var showAlertsOnDashboard: Boolean,
-    var alertTypes: Option[List[String]],
-    var alertSeverity: Option[List[String]],
-    var enableSmsAlerts: Boolean,
-    var sms: Option[String],
-    var enableEmailAlerts: Boolean,
-    var email: Option[String]
+    userId: String,
+    showAlertsOnDashboard: Boolean,
+    alertTypes: Option[List[String]],
+    alertSeverity: Option[List[String]],
+    enableSmsAlerts: Boolean,
+    sms: Option[String],
+    enableEmailAlerts: Boolean,
+    email: Option[String]
   )
 
   def notificationForm(user_id: String): Form[NotificationForm] = Form(
