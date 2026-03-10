@@ -101,9 +101,9 @@ object GooglePerformanceCharts {
     ) ++ commonGooglePerformanceChartColumns,
     metaData,
     PerformanceEntityFactory.createGoogleAccountPerformance,
-    googleReportCollection(com.google.api.ads.adwords.lib.jaxb.v201609.ReportDefinitionReportType.CAMPAIGN_PERFORMANCE_REPORT)
-  )   
-  
+    googleReportCollection("CAMPAIGN_PERFORMANCE_REPORT")
+  )
+
   class GoogleCampaignPerformanceChart(
     metaData: ChartMetaData
   ) extends PerformanceChart[GoogleCampaignPerformance](
@@ -120,7 +120,7 @@ object GooglePerformanceCharts {
     ) ++ commonGooglePerformanceChartColumns,
     metaData,
     PerformanceEntityFactory.createGoogleCampaignPerformance,
-    googleReportCollection(com.google.api.ads.adwords.lib.jaxb.v201609.ReportDefinitionReportType.CAMPAIGN_PERFORMANCE_REPORT)
+    googleReportCollection("CAMPAIGN_PERFORMANCE_REPORT")
   ){
     
     override lazy val entities: List[GoogleCampaignPerformance] = {
@@ -160,7 +160,7 @@ object GooglePerformanceCharts {
     ) ++ commonGooglePerformanceChartColumns,
     metaData,
     PerformanceEntityFactory.createGoogleAdGroupPerformance,
-    googleReportCollection(com.google.api.ads.adwords.lib.jaxb.v201609.ReportDefinitionReportType.ADGROUP_PERFORMANCE_REPORT)
+    googleReportCollection("ADGROUP_PERFORMANCE_REPORT")
   )
   
   class GoogleAdPerformanceChart(
@@ -193,7 +193,7 @@ object GooglePerformanceCharts {
     ) ++ commonGooglePerformanceChartColumns,
     metaData,
     PerformanceEntityFactory.createGoogleAdPerformance,
-    googleReportCollection(com.google.api.ads.adwords.lib.jaxb.v201609.ReportDefinitionReportType.AD_PERFORMANCE_REPORT)
+    googleReportCollection("AD_PERFORMANCE_REPORT")
   )
   
   class GoogleGeoPerformanceChart(
@@ -219,6 +219,6 @@ object GooglePerformanceCharts {
     ) ++ commonGooglePerformanceChartColumns,
     metaData,
     PerformanceEntityFactory.createGoogleGeoPerformance,
-    googleReportCollection(com.google.api.ads.adwords.lib.jaxb.v201609.ReportDefinitionReportType.GEO_PERFORMANCE_REPORT)
+    googleReportCollection("GEO_PERFORMANCE_REPORT")
   )
 }

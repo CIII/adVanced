@@ -1,6 +1,7 @@
 package util.charts.client
 
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import util.charts.client.ChartColumn.ColumnDataType.ColumnDataType
 import util.charts.client.ChartColumn.ColumnType.ColumnType
 import util.charts.client.ChartColumn.ColumnType
@@ -80,7 +81,7 @@ class ChartColumn (
 object ChartColumn {
   
   trait OperationalColumn extends DependencyColumn{
-    def getQueryObject(): DBObject
+    def getQueryObject(): Document
   }
   
   trait DynamicColumn extends DependencyColumn{

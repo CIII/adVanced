@@ -8,7 +8,8 @@ import models.mongodb.performance.PerformanceField.PerformanceFieldType._
 import util.charts.ChartMetaData
 import util.charts.ChartData
 import util.charts.ChartCache
-import com.mongodb.casbah.MongoCollection
+import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.bson.Document
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
 import java.io.File
@@ -20,7 +21,7 @@ class PerformanceChart[T <: PerformanceEntity](
   val columns: List[PerformanceChartColumn],         
   val metaData: ChartMetaData,         
   entityFactory: () => T,         
-  collection: MongoCollection
+  collection: MongoCollection[Document]
 ){
   
   /**

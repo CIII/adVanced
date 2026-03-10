@@ -4,15 +4,14 @@ import com.github.tototoshi.slick.MySQLJodaSupport._
 import models.mysql._
 import org.joda.time.DateTime
 import play.api.db.slick.HasDatabaseConfig
-import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import play.api.mvc.Controller
-import slick.backend.DatabaseConfig
-import slick.driver.JdbcProfile
+import slick.basic.DatabaseConfig
+import slick.jdbc.JdbcProfile
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-class ArrivalFactDAO(protected val dbConfig: DatabaseConfig[JdbcProfile]) extends HasDatabaseConfig[JdbcProfile] with Controller {
-  import driver.api._
+class ArrivalFactDAO(dbConfigIn: DatabaseConfig[JdbcProfile])(implicit ec: ExecutionContext) extends HasDatabaseConfig[JdbcProfile] {
+  override protected lazy val dbConfig: DatabaseConfig[JdbcProfile] = dbConfigIn
+  import profile.api._
 
   private val ArrivalFacts = TableQuery[ArrivalFactTable]
 
@@ -42,7 +41,7 @@ class ArrivalFactDAO(protected val dbConfig: DatabaseConfig[JdbcProfile]) extend
   }
 
   def findByDateRange(start_date: DateTime, end_date: DateTime): Future[Seq[ArrivalFact]] = {
-    db.run(ArrivalFacts.filter(fact => fact.created_at >= start_date || fact.created_at <= end_date).result)
+    db.run(ArrivalFacts.filter(fact => fact.created_at >= start_date && fact.created_at <= end_date).result)
   }
 
   private class ArrivalFactTable(tag: Tag) extends Table[ArrivalFact](tag, "arrival_facts") {
@@ -327,7 +326,7 @@ class ArrivalFactDAO(protected val dbConfig: DatabaseConfig[JdbcProfile]) extend
         (form_step_7, form_step_8, lp_content_engage, form_complete, page_closed, page_loaded, form_step_5, form_step_6),
         (u_page_closed, u_page_loaded, u_form_step_2b, u_page_rendered, u_form_step_1, u_form_step_2, u_form_step_3, u_form_step_4, u_form_step_5, u_maxmind_failure_on_page_load, u_landing_page_completed, u_address_completed, u_ownership_completed, u_power_bill_completed, u_power_company_completed, u_name_completed, u_email_completed, u_phone_completed, u_email_modal_completed, u_credit_score_completed, u_page_focus, u_page_blur),
         (u_form_step_6, u_form_step_7, u_form_step_8, u_form_complete)
-      ).shaped[ArrivalFactTupleType]
+      ).shaped
     //
     private val toModel: ArrivalFactTupleType => ArrivalFact = { arrivalFactTuple =>
       ArrivalFact(
@@ -341,136 +340,6 @@ class ArrivalFactDAO(protected val dbConfig: DatabaseConfig[JdbcProfile]) extend
         event_2 = ArrivalFactEvent2.tupled.apply(arrivalFactTuple._8),
         u_event_1 = ArrivalFactUEvent1.tupled.apply(arrivalFactTuple._9),
         u_event_2 = ArrivalFactUEvent2.tupled.apply(arrivalFactTuple._10)
-        /*traffic_source = ArrivalFactTrafficSource(
-        adgroupid = arrivalFactTuple._2._1,
-        gclid = arrivalFactTuple._2._2,
-        lp_conv_u = arrivalFactTuple._2._3,
-        keyword = arrivalFactTuple._2._4,
-        g_network = arrivalFactTuple._2._5,
-        g_device = arrivalFactTuple._2._6,
-        g_location = arrivalFactTuple._2._7,
-        conf = arrivalFactTuple._2._8,
-        conu = arrivalFactTuple._2._9,
-        conversion = arrivalFactTuple._2._10,
-        conversion_count = arrivalFactTuple._2._11,
-        conversion_page = arrivalFactTuple._2._12,
-        lp_ctc = arrivalFactTuple._2._13,
-        u_lp_ctc = arrivalFactTuple._2._14,
-        u_lp_content_engage = arrivalFactTuple._2._15,
-        utm_source = arrivalFactTuple._2._16,
-        utm_campaign = arrivalFactTuple._2._17,
-        utm_medium = arrivalFactTuple._2._18
-      ),
-      device = ArrivalFactDevice(
-        device_name = arrivalFactTuple._3._1,
-        device_type = arrivalFactTuple._3._2,
-        device_brand = arrivalFactTuple._3._3,
-        device_model = arrivalFactTuple._3._4
-      ),
-      browser = ArrivalFactBrowser(
-        browser = arrivalFactTuple._4._1,
-        browser_id = arrivalFactTuple._4._2,
-        browser_version = arrivalFactTuple._4._3,
-        arrivals = arrivalFactTuple._4._4,
-        bounce = arrivalFactTuple._4._5,
-        robot_id = arrivalFactTuple._4._6
-      ),
-      session = ArrivalFactSession(
-        session_id = arrivalFactTuple._5._1,
-        ip_address = arrivalFactTuple._5._2,
-        ip_blacklisted = arrivalFactTuple._5._3,
-        is_ip_blacklisted = arrivalFactTuple._5._4,
-        maxmind_zip = arrivalFactTuple._5._5,
-        name_capture = arrivalFactTuple._5._6,
-        new_ip = arrivalFactTuple._5._7,
-        new_session = arrivalFactTuple._5._8,
-        os_name = arrivalFactTuple._5._9,
-        os_version = arrivalFactTuple._5._10,
-        ab_tests = arrivalFactTuple._5._11,
-        git_hash = arrivalFactTuple._5._12,
-        created_at = arrivalFactTuple._5._13,
-        day_of_week = arrivalFactTuple._5._14,
-        duration = arrivalFactTuple._5._15,
-        entry_page = arrivalFactTuple._5._16,
-        entry_url = arrivalFactTuple._5._17,
-        exit_url = arrivalFactTuple._5._18,
-        last_activity = arrivalFactTuple._5._19,
-        local_hour = arrivalFactTuple._5._20,
-        page_views = arrivalFactTuple._5._21,
-        revenue = arrivalFactTuple._5._22
-      ),
-      form = ArrivalFactForm(
-        email = arrivalFactTuple._6._1,
-        form_city = arrivalFactTuple._6._2,
-        form_state = arrivalFactTuple._6._3,
-        form_zip = arrivalFactTuple._6._4,
-        electric_bill = arrivalFactTuple._6._5,
-        prop_own = arrivalFactTuple._6._6
-      ),
-      event_1 = ArrivalFactEvent1(
-        maxmind_failure_on_page_load = arrivalFactTuple._7._1,
-        landing_page_completed = arrivalFactTuple._7._2,
-        address_completed = arrivalFactTuple._7._3,
-        ownership_completed = arrivalFactTuple._7._4,
-        power_bill_completed = arrivalFactTuple._7._5,
-        power_company_completed = arrivalFactTuple._7._6,
-        name_completed = arrivalFactTuple._7._7,
-        email_completed = arrivalFactTuple._7._8,
-        phone_completed = arrivalFactTuple._7._9,
-        email_modal_completed = arrivalFactTuple._7._10,
-        credit_score_completed = arrivalFactTuple._7._11,
-        creative = arrivalFactTuple._7._12,
-        page_focus = arrivalFactTuple._7._13,
-        page_blur = arrivalFactTuple._7._14,
-        event_category = arrivalFactTuple._7._15,
-        events_count = arrivalFactTuple._7._16,
-        form_step_1 = arrivalFactTuple._7._17,
-        form_step_2 = arrivalFactTuple._7._18,
-        form_step_3 = arrivalFactTuple._7._19,
-        form_step_2b = arrivalFactTuple._7._20,
-        page_rendered = arrivalFactTuple._7._21,
-        form_step_4 = arrivalFactTuple._7._22
-      ),
-      event_2 = ArrivalFactEvent2(
-        form_step_7 = arrivalFactTuple._8._1,
-        form_step_8 = arrivalFactTuple._8._2,
-        lp_content_engage = arrivalFactTuple._8._3,
-        form_complete = arrivalFactTuple._8._4,
-        page_closed = arrivalFactTuple._8._5,
-        page_loaded = arrivalFactTuple._8._6,
-        form_step_5 = arrivalFactTuple._8._7,
-        form_step_6 = arrivalFactTuple._8._8
-      ),
-      u_event_1 = ArrivalFactUEvent1(
-        u_page_closed = arrivalFactTuple._9._1,
-        u_page_loaded = arrivalFactTuple._9._2,
-        u_form_step_2b = arrivalFactTuple._9._3,
-        u_page_rendered = arrivalFactTuple._9._4,
-        u_form_step_1 = arrivalFactTuple._9._5,
-        u_form_step_2 = arrivalFactTuple._9._6,
-        u_form_step_3 = arrivalFactTuple._9._7,
-        u_form_step_4 = arrivalFactTuple._9._8,
-        u_form_step_5 = arrivalFactTuple._9._9,
-        u_maxmind_failure_on_page_load = arrivalFactTuple._9._10,
-        u_landing_page_completed = arrivalFactTuple._9._11,
-        u_address_completed = arrivalFactTuple._9._12,
-        u_ownership_completed = arrivalFactTuple._9._13,
-        u_power_bill_completed = arrivalFactTuple._9._14,
-        u_power_company_completed = arrivalFactTuple._9._15,
-        u_name_completed = arrivalFactTuple._9._16,
-        u_email_completed = arrivalFactTuple._9._17,
-        u_phone_completed = arrivalFactTuple._9._18,
-        u_email_modal_completed = arrivalFactTuple._9._19,
-        u_credit_score_completed = arrivalFactTuple._9._20,
-        u_page_focus = arrivalFactTuple._9._21,
-        u_page_blur = arrivalFactTuple._9._22
-      ),
-      u_event_2 = ArrivalFactUEvent2(
-        u_form_step_6 = arrivalFactTuple._10._1,
-        u_form_step_7 = arrivalFactTuple._10._2,
-        u_form_step_8 = arrivalFactTuple._10._3,
-        u_form_complete = arrivalFactTuple._10._4
-      )*/
       )
     }
     private val toTuple: ArrivalFact => Option[ArrivalFactTupleType] = { arrival_fact =>
@@ -486,137 +355,6 @@ class ArrivalFactDAO(protected val dbConfig: DatabaseConfig[JdbcProfile]) extend
           ArrivalFactEvent2.unapply(arrival_fact.event_2).get,
           ArrivalFactUEvent1.unapply(arrival_fact.u_event_1).get,
           ArrivalFactUEvent2.unapply(arrival_fact.u_event_2).get
-
-          /*(
-          arrival_fact.traffic_source.adgroupid,
-          arrival_fact.traffic_source.gclid,
-          arrival_fact.traffic_source.lp_conv_u,
-          arrival_fact.traffic_source.keyword,
-          arrival_fact.traffic_source.g_network,
-          arrival_fact.traffic_source.g_device,
-          arrival_fact.traffic_source.g_location,
-          arrival_fact.traffic_source.conf,
-          arrival_fact.traffic_source.conu,
-          arrival_fact.traffic_source.conversion,
-          arrival_fact.traffic_source.conversion_count,
-          arrival_fact.traffic_source.conversion_page,
-          arrival_fact.traffic_source.lp_ctc,
-          arrival_fact.traffic_source.u_lp_ctc,
-          arrival_fact.traffic_source.u_lp_content_engage,
-          arrival_fact.traffic_source.utm_source,
-          arrival_fact.traffic_source.utm_campaign,
-          arrival_fact.traffic_source.utm_medium
-        ),
-        (
-          arrival_fact.device.device_name,
-          arrival_fact.device.device_type,
-          arrival_fact.device.device_brand,
-          arrival_fact.device.device_model
-        ),
-        (
-          arrival_fact.browser.browser,
-          arrival_fact.browser.browser_id,
-          arrival_fact.browser.browser_version,
-          arrival_fact.browser.arrivals,
-          arrival_fact.browser.bounce,
-          arrival_fact.browser.robot_id
-        ),
-        (
-          arrival_fact.session.session_id,
-          arrival_fact.session.ip_address,
-          arrival_fact.session.ip_blacklisted,
-          arrival_fact.session.is_ip_blacklisted,
-          arrival_fact.session.maxmind_zip,
-          arrival_fact.session.name_capture,
-          arrival_fact.session.new_ip,
-          arrival_fact.session.new_session,
-          arrival_fact.session.os_name,
-          arrival_fact.session.os_version,
-          arrival_fact.session.ab_tests,
-          arrival_fact.session.git_hash,
-          arrival_fact.session.created_at: Option[DateTime],
-          arrival_fact.session.day_of_week,
-          arrival_fact.session.duration,
-          arrival_fact.session.entry_page,
-          arrival_fact.session.entry_url,
-          arrival_fact.session.exit_url,
-          arrival_fact.session.last_activity: Option[DateTime],
-          arrival_fact.session.local_hour,
-          arrival_fact.session.page_views,
-          arrival_fact.session.revenue
-        ),
-        (
-          arrival_fact.form.email,
-          arrival_fact.form.form_city,
-          arrival_fact.form.form_state,
-          arrival_fact.form.form_zip,
-          arrival_fact.form.electric_bill,
-          arrival_fact.form.prop_own
-        ),
-        (
-          arrival_fact.event_1.maxmind_failure_on_page_load,
-          arrival_fact.event_1.landing_page_completed,
-          arrival_fact.event_1.address_completed,
-          arrival_fact.event_1.ownership_completed,
-          arrival_fact.event_1.power_bill_completed,
-          arrival_fact.event_1.power_company_completed,
-          arrival_fact.event_1.name_completed,
-          arrival_fact.event_1.email_completed,
-          arrival_fact.event_1.phone_completed,
-          arrival_fact.event_1.email_modal_completed,
-          arrival_fact.event_1.credit_score_completed,
-          arrival_fact.event_1.creative,
-          arrival_fact.event_1.page_focus,
-          arrival_fact.event_1.page_blur,
-          arrival_fact.event_1.event_category,
-          arrival_fact.event_1.events_count,
-          arrival_fact.event_1.form_step_1,
-          arrival_fact.event_1.form_step_2,
-          arrival_fact.event_1.form_step_3,
-          arrival_fact.event_1.form_step_2b,
-          arrival_fact.event_1.page_rendered,
-          arrival_fact.event_1.form_step_4
-        ),
-        (
-          arrival_fact.event_2.form_step_7,
-          arrival_fact.event_2.form_step_8,
-          arrival_fact.event_2.lp_content_engage,
-          arrival_fact.event_2.form_complete,
-          arrival_fact.event_2.page_closed,
-          arrival_fact.event_2.page_loaded,
-          arrival_fact.event_2.form_step_5,
-          arrival_fact.event_2.form_step_6
-        ),
-        (
-          arrival_fact.u_event_1.u_page_closed,
-          arrival_fact.u_event_1.u_page_loaded,
-          arrival_fact.u_event_1.u_form_step_2b,
-          arrival_fact.u_event_1.u_page_rendered,
-          arrival_fact.u_event_1.u_form_step_1,
-          arrival_fact.u_event_1.u_form_step_2,
-          arrival_fact.u_event_1.u_form_step_3,
-          arrival_fact.u_event_1.u_form_step_4,
-          arrival_fact.u_event_1.u_form_step_5,
-          arrival_fact.u_event_1.u_maxmind_failure_on_page_load,
-          arrival_fact.u_event_1.u_landing_page_completed,
-          arrival_fact.u_event_1.u_address_completed,
-          arrival_fact.u_event_1.u_ownership_completed,
-          arrival_fact.u_event_1.u_power_bill_completed,
-          arrival_fact.u_event_1.u_power_company_completed,
-          arrival_fact.u_event_1.u_name_completed,
-          arrival_fact.u_event_1.u_email_completed,
-          arrival_fact.u_event_1.u_phone_completed,
-          arrival_fact.u_event_1.u_email_modal_completed,
-          arrival_fact.u_event_1.u_credit_score_completed,
-          arrival_fact.u_event_1.u_page_focus,
-          arrival_fact.u_event_1.u_page_blur
-        ),
-        (
-          arrival_fact.u_event_2.u_form_step_6,
-          arrival_fact.u_event_2.u_form_step_7,
-          arrival_fact.u_event_2.u_form_step_8,
-          arrival_fact.u_event_2.u_form_complete
-        )*/
         )
       }
     }

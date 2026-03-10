@@ -2,7 +2,9 @@ package util.charts
 
 import org.joda.time.DateTime
 import util.charts.client.ChartColumn
-import com.mongodb.casbah.MongoCollection
+import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import play.api.Logger
 import util.charts.performance.PerformanceChartColumn
 
@@ -21,12 +23,12 @@ object ChartCache {
    * Get a list of distinct values for a column from the cache, if it exists.  If not, load it from the
    * db and store it in the cache.  Include a timestamp so that we throw out values that aren't from today.
    */
-  def getDistinctValuesForColumn(collection: MongoCollection, column: PerformanceChartColumn): List[Any] = {
-    val cacheKey = s"${collection.name}::${column.filterField.fieldName}"
+  def getDistinctValuesForColumn(collection: MongoCollection[Document], column: PerformanceChartColumn): List[Any] = {
+    val cacheKey = s"${collection.namespace.getCollectionName}::${column.filterField.fieldName}"
     chartDistinctValuesMap.get(cacheKey) match {
       case Some(values)  => values
       case _ =>
-        val values = collection.distinct(column.filterField.fieldName).toList
+        val values: List[Any] = collection.distinctSync(column.filterField.fieldName)
         chartDistinctValuesMap = chartDistinctValuesMap + (cacheKey -> values)
         values   
     }
