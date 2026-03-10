@@ -2,32 +2,31 @@ package models.mongodb.performance
 
 import models.mongodb.performance.PerformanceField.PerformanceFieldType._
 import models.mongodb.performance.HtmlPerformanceField._
-import com.mongodb.casbah.Imports._
-import com.mongodb.util.JSON
+import org.mongodb.scala.bson.Document
 
 class HtmlPerformanceField(
   fieldName: String,
   builder: HtmlFieldBuilder
   )extends PerformanceField(fieldName, dimension){
-  
+
   override def dependantFields(): List[PerformanceField] = builder.getRequiredFields()
-  override def projectionQueryObject(): DBObject = {
-    DBObject(fieldName -> (JSON.parse("{" + builder.build + "}").asInstanceOf[DBObject]))
+  override def projectionQueryObject(): Document = {
+    Document(fieldName -> Document("{" + builder.build + "}"))
   }
 }
 
 object HtmlPerformanceField{
-  
+
   trait HtmlFieldSegment {
     def getStringValue(): String
     def getRequiredFields(): List[PerformanceField]
   }
-  
+
   class DimensionFieldSegment(field: PerformanceField) extends HtmlFieldSegment{
     override def getStringValue(): String = "$_id." + field.fieldName
     override def getRequiredFields(): List[PerformanceField] = List(field)
   }
-  
+
   /**
    * Fields which are stored in mongodb as numbers must first be converted
    * to a string before they can be concatenated with other strings.  This is
@@ -39,23 +38,23 @@ object HtmlPerformanceField{
     }
     override def getRequiredFields(): List[PerformanceField] = List(field)
   }
-  
+
   class HtmlSegment(html: String) extends HtmlFieldSegment{
     override def getStringValue(): String = html
     override def getRequiredFields(): List[PerformanceField] = List()
   }
-  
+
   class HtmlFieldBuilder(segments: HtmlFieldSegment*){
     def build(): String = {
       "$concat: [\"" + segments.map { segment => segment.getStringValue() }
         .mkString("\",\"") + "\"]"
     }
-    
+
     def getRequiredFields(): List[PerformanceField] = {
       segments.map { segment => segment.getRequiredFields() }.flatten.distinct.toList
     }
   }
-  
+
   def clickthroughBuilder(visibleField: PerformanceField,
       idField: PerformanceField,
       clickthroughRoute: String): HtmlFieldBuilder = {
@@ -69,8 +68,8 @@ object HtmlPerformanceField{
       new HtmlSegment("</div>")
     )
   }
-  
-  def clickthroughAndEditBuilder(visibleField: PerformanceField, 
+
+  def clickthroughAndEditBuilder(visibleField: PerformanceField,
       clickthroughRoute: String, editRoute: String): HtmlFieldBuilder = {
     new HtmlFieldBuilder(
       new HtmlSegment("<div>"),
@@ -87,7 +86,7 @@ object HtmlPerformanceField{
       new HtmlSegment("</div>")
     )
   }
-  
+
   def editBuilder(visibleField: PerformanceField, editRoute: String): HtmlFieldBuilder = {
     new HtmlFieldBuilder(
       new HtmlSegment("<div>"),

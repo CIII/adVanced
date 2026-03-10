@@ -7,34 +7,34 @@ import models.mongodb.performance.CalculatedPerformanceField
 import models.mongodb.performance.CalculatedPerformanceField._
 import models.mongodb.lynx.TQReportingPerformance._
 import org.joda.time.DateTime
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala.bson.Document
 
 class TQReportingPerformance extends PerformanceEntity{
-  
+
   override def date(): DateTime = DateTime.parse(getStringField(createdAtField))
   override def date(value: DateTime) = setField(createdAtField, value.toString(dtf))
-  
+
   override def id(): String = getStringField(sessionIdField)
   override def id(value: String) = setField(sessionIdField, value)
-  
+
   def trafficSource(): String = getStringField(trafficSourceField)
   def trafficSource(value: String) = setField(trafficSourceField, value)
-  
+
   def createdAt(): DateTime = date()
   def createdAt(value: DateTime) = date(value)
-  
+
   def cost(): Double = getDoubleField(costField, 0.0)
   def cost(value: Double) = setField(costField, value)
-  
+
   def clicks(): Int = getIntField(clicksField, 0)
-  def clicks(value: Double) = setField(clicksField, value)
-  
+  def clicks(value: Int) = setField(clicksField, value)
+
   def conU(): Int = getIntField(conUField)
   def conU(value: Int) = setField(conUField, value)
-  
+
   def costConU(): Double = getDoubleField(costConUField, safeDivide(cost, conU))
   def costConU(value: Double) = setField(costConUField, value)
-  
+
   def sessionId(value: String) = setField(sessionIdField, value)
   def arrivals(value: Int) = setField(arrivalsField, value)
   def revenue(value: Double) = setField(revenueField, value)
@@ -45,26 +45,26 @@ class TQReportingPerformance extends PerformanceEntity{
   def lpConvU(value: Double) = setField(lpConvUField, value)
   def lpCRate(value: Double) = setField(lpCRateField, value)
   def vplConU(value: Double) = setField(vplConUField, value)
-  
-  override def toDBO(): DBObject = {
-    throw new Exception("Cannot create DBO object for TQReportingPerformance. TQReporting should be used")
+
+  override def toDocument(): Document = {
+    throw new Exception("Cannot create Document object for TQReportingPerformance. TQReporting should be used")
   }
-  
-  override def fromDBO(dbo: DBObject){
-    super.fromDBO(dbo)
-    parseDateTime(dbo, createdAtField.fieldName, date)
-    parseStringField(dbo, sessionIdField.fieldName, id)
-    parseStringField(dbo, trafficSourceField.fieldName, trafficSource, "")
-    parseIntField(dbo, arrivalsField.fieldName, arrivals)
-    parseDoubleField(dbo, revenueField.fieldName, revenue)
-    parseIntField(dbo, pageLoadsField.fieldName, pageLoads)
-    parseIntField(dbo, bouncesField.fieldName, bounces)
-    parseDoubleField(dbo, conversionsField.fieldName, conversions)
-    parseDoubleField(dbo, cRateField.fieldName, cRate)
-    parseIntField(dbo, conUField.fieldName, conU)
-    parseDoubleField(dbo, lpConvUField.fieldName, lpConvU)
-    parseDoubleField(dbo, lpCRateField.fieldName, lpCRate)
-    parseDoubleField(dbo, vplConUField.fieldName, vplConU)
+
+  override def fromDocument(doc: Document){
+    super.fromDocument(doc)
+    parseDateTime(doc, createdAtField.fieldName, date)
+    parseStringField(doc, sessionIdField.fieldName, id)
+    parseStringField(doc, trafficSourceField.fieldName, trafficSource, "")
+    parseIntField(doc, arrivalsField.fieldName, arrivals)
+    parseDoubleField(doc, revenueField.fieldName, revenue)
+    parseIntField(doc, pageLoadsField.fieldName, pageLoads)
+    parseIntField(doc, bouncesField.fieldName, bounces)
+    parseDoubleField(doc, conversionsField.fieldName, conversions)
+    parseDoubleField(doc, cRateField.fieldName, cRate)
+    parseIntField(doc, conUField.fieldName, conU)
+    parseDoubleField(doc, lpConvUField.fieldName, lpConvU)
+    parseDoubleField(doc, lpCRateField.fieldName, lpCRate)
+    parseDoubleField(doc, vplConUField.fieldName, vplConU)
   }
 }
 
@@ -82,7 +82,7 @@ object TQReportingPerformance{
   lazy val lpCRateField = new CalculatedPerformanceField("lpCRate", new Multiply(new Divide(new Variable(lpConvUField), new Variable(arrivalsField)), new Literal(100)))
   lazy val cRateField = new CalculatedPerformanceField("cRate", new Multiply(new Divide(new Variable(conversionsField), new Variable(pageLoadsField)), new Literal(100)))
   lazy val vplConUField = new CalculatedPerformanceField("vplConU", new Divide(new Variable(revenueField), new Variable(conUField)))
-  
+
   // External fields (will always be null or 0 until explicitly set)
   lazy val costField = new PerformanceField("cost", measure)
   lazy val clicksField = new PerformanceField("clicks", measure)

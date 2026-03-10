@@ -1,47 +1,52 @@
 package models.mongodb.performance
 
-import com.google.gson.JsonDeserializer
-import com.google.gson.JsonSerializer
-import com.google.gson.JsonElement
-import java.lang.reflect.Type
-import com.google.gson.JsonDeserializationContext
-import com.google.gson.JsonObject
-import util.ChartDataAdapter
-import com.google.gson.JsonSerializationContext
-import com.google.gson.reflect.TypeToken
-import scala.collection.JavaConverters._
-import com.google.gson.JsonPrimitive
+import play.api.libs.json._
 
 case class PerformanceEntityFilter(
-  var field: PerformanceField,
-  var operation: String,            // Filter operation, such as "in", "gt", "lt", "eq", etc.
-  var values: List[Any]             // values to filter. for "in", this should be specific values.  for other ones like gt, it should be a number
+  field: PerformanceField,
+  operation: String,                // Filter operation, such as "in", "gt", "lt", "eq", etc.
+  values: List[Any]                 // values to filter. for "in", this should be specific values.  for other ones like gt, it should be a number
 )
 
-object PerformanceEntityFilter{
-  class PerformanceEntityFilterAdapter extends JsonSerializer[PerformanceEntityFilter] 
-    with JsonDeserializer[PerformanceEntityFilter] {
-    
-    override def deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): PerformanceEntityFilter = {
-      val jsonObject: JsonObject = json.getAsJsonObject
-      PerformanceEntityFilter(
-        context.deserialize(jsonObject.get("field"), new TypeToken[PerformanceField]{}.getType),
-        jsonObject.get("operation").getAsString,
-        ChartDataAdapter.deserializeList(jsonObject.get("values"), context)
-      )
+object PerformanceEntityFilter {
 
+  private def anyReads: Reads[Any] = Reads {
+    case JsString(s) => JsSuccess(s)
+    case JsNumber(n) =>
+      if (n.isValidInt) JsSuccess(n.toInt)
+      else if (n.isValidLong) JsSuccess(n.toLong)
+      else JsSuccess(n.toDouble)
+    case JsBoolean(b) => JsSuccess(b)
+    case JsNull => JsSuccess(null)
+    case other => JsError(s"Unsupported type: $other")
+  }
+
+  private def anyWrites: Writes[Any] = Writes {
+    case s: String => JsString(s)
+    case n: Int => JsNumber(n)
+    case n: Long => JsNumber(n)
+    case n: Double => JsNumber(n)
+    case n: BigDecimal => JsNumber(n)
+    case b: Boolean => JsBoolean(b)
+    case null => JsNull
+    case other => JsString(other.toString)
+  }
+
+  implicit val performanceEntityFilterFormat: Format[PerformanceEntityFilter] = new Format[PerformanceEntityFilter] {
+    override def reads(json: JsValue): JsResult[PerformanceEntityFilter] = {
+      for {
+        field <- (json \ "field").validate[PerformanceField](PerformanceField.performanceFieldFormat)
+        operation <- (json \ "operation").validate[String]
+        values <- (json \ "values").validate[List[Any]](Reads.list(anyReads))
+      } yield PerformanceEntityFilter(field, operation, values)
     }
-    
-    override def serialize(src: PerformanceEntityFilter, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
-      val json = new JsonObject()
-      val fieldJson = new JsonObject();
-      fieldJson.add("fieldName", new JsonPrimitive(src.field.fieldName))
-      fieldJson.add("fieldType", new JsonPrimitive(src.field.fieldType.toString))
-      json.add("field", fieldJson)
-      json.add("operation", context.serialize(src.operation))
-      json.add("values", context.serialize(src.values.asJava))
-      
-      json
+
+    override def writes(src: PerformanceEntityFilter): JsValue = {
+      Json.obj(
+        "field" -> Json.toJson(src.field)(PerformanceField.performanceFieldFormat),
+        "operation" -> src.operation,
+        "values" -> JsArray(src.values.map(v => anyWrites.writes(v)))
+      )
     }
   }
 }

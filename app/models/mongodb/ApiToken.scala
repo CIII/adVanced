@@ -1,32 +1,31 @@
 package models.mongodb
 
-import Shared.Shared._
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import org.bson.types.ObjectId
-import play.libs.Scala
+import models.mongodb.MongoExtensions._
 
 case class ApiToken(
   _id: Option[ObjectId],
-  var token: String,
-  var active: Boolean
+  token: String,
+  active: Boolean
 )
 
 object ApiToken {
-  def apiTokenCollection = advancedCollection("api_token")
 
-  def apiTokenToDbo(apiToken: ApiToken): DBObject = {
-    DBObject(
+  def apiTokenToDocument(apiToken: ApiToken): Document = {
+    Document(
       "_id" -> apiToken._id.getOrElse(new ObjectId),
       "token" -> apiToken.token,
       "active" -> apiToken.active
     )
   }
 
-  def dboToApiToken(dbo: DBObject): ApiToken = {
+  def documentToApiToken(doc: Document): ApiToken = {
     ApiToken(
-      _id=dbo._id,
-      token=dbo.getAs[String]("token").get,
-      active=dbo.getAs[Boolean]("active").get
+      _id = Option(doc.getObjectId("_id")),
+      token = doc.getString("token"),
+      active = doc.getBoolean("active")
     )
   }
 }
