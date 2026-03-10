@@ -1,44 +1,59 @@
 package models.mongodb.google
 
-import Shared.Shared._
-import com.mongodb.casbah.Imports._
-import com.mongodb.util.JSON
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import org.bson.types.ObjectId
+import play.api.libs.json.{JsValue, Json}
+import models.mongodb.MongoExtensions._
 
-import scala.reflect.internal.util.ScalaClassLoader
 import scala.reflect.{ClassTag, classTag}
 
 object Google {
-  def googleMccCollection = advancedCollection("google_mcc")
-  def googleCustomerCollection = advancedCollection("google_customer")
-  def googleCampaignCollection = advancedCollection("google_campaign")
-  def googleAdGroupCollection = advancedCollection("google_adgroup")
-  def googleAdCollection  = advancedCollection("google_ad")
-  def googleCriterionCollection = advancedCollection("google_criterion")
-  def googleBudgetCollection = advancedCollection("google_budget")
-  def googleBiddingStrategyCollection = advancedCollection("google_bidding_strategy")
-  def googleBidModifierCollection = advancedCollection("google_bid_modifier")
-  def googleReportCollection(
-    reportType: com.google.api.ads.adwords.lib.jaxb.v201609.ReportDefinitionReportType
-  ) = advancedCollection(
-    "google_%s".format(reportType.value.toLowerCase)
-  )
 
-  def dboToGoogleEntity[T: ClassTag](dbo: DBObject, listKey: String, objectKey: Option[String]): T = {
-    gson.fromJson(
-      JSON.serialize(
-        objectKey match {
-          case Some(key) =>
-            dbo.as[DBObject](listKey).as[DBObject]("object").expand[DBObject](key)
-          case None =>
-            dbo.as[DBObject](listKey).as[DBObject]("object")
-        }
-      ),
-      classTag[T].runtimeClass.asInstanceOf[Class[T]]
+  // Initialized by StartupTasks from MongoService
+  var googleMccCollection: MongoCollection[Document] = _
+  var googleCustomerCollection: MongoCollection[Document] = _
+  var googleCampaignCollection: MongoCollection[Document] = _
+  var googleAdGroupCollection: MongoCollection[Document] = _
+  var googleAdCollection: MongoCollection[Document] = _
+  var googleCriterionCollection: MongoCollection[Document] = _
+  var googleBudgetCollection: MongoCollection[Document] = _
+  var googleBiddingStrategyCollection: MongoCollection[Document] = _
+
+  // Report collections are dynamically named by report type
+  private var _mongoService: Option[services.MongoService] = None
+  def setMongoService(ms: services.MongoService): Unit = _mongoService = Some(ms)
+  def googleReportCollection(reportType: String): MongoCollection[Document] = {
+    _mongoService.map(_.collection(s"google_${reportType.toLowerCase}")).getOrElse(
+      throw new RuntimeException("MongoService not initialized")
     )
   }
 
-  def mccToDBObject(mcc: Mcc): DBObject = {
-    DBObject(
+  /**
+   * Deserialize a stored Google entity Document back to its original type.
+   *
+   * TODO: Replace Gson-based deserialization with Play JSON or direct Document field access
+   * when the Google Ads API v18 migration is complete.
+   */
+  def documentToEntity[T: ClassTag](doc: Document, listKey: String, objectKey: Option[String]): T = {
+    val innerDoc = objectKey match {
+      case Some(key) =>
+        val listDoc = Option(doc.toBsonDocument.get(listKey)).map(v => Document(v.asDocument())).get
+        val objectDoc = Option(listDoc.toBsonDocument.get("object")).map(v => Document(v.asDocument())).get
+        Option(objectDoc.toBsonDocument.get(key)).map(v => Document(v.asDocument())).get
+      case None =>
+        val listDoc = Option(doc.toBsonDocument.get(listKey)).map(v => Document(v.asDocument())).get
+        Option(listDoc.toBsonDocument.get("object")).map(v => Document(v.asDocument())).get
+    }
+    // TODO: Replace with Play JSON deserialization
+    val json = Json.parse(innerDoc.toJson())
+    json.as[T](implicitly[ClassTag[T]].runtimeClass.asInstanceOf[Class[T]] match {
+      case _ => throw new RuntimeException(s"TODO: Implement Play JSON Reads for ${classTag[T].runtimeClass.getName}")
+    })
+  }
+
+  def mccToDocument(mcc: Mcc): Document = {
+    Document(
       "_id" -> mcc._id,
       "developerToken" -> mcc.developerToken,
       "name" -> mcc.name,
@@ -48,23 +63,23 @@ object Google {
     )
   }
 
-  def dboToMcc(dbo: DBObject): Mcc = {
+  def documentToMcc(doc: Document): Mcc = {
     Mcc(
-      _id = dbo._id,
-      name = dbo.as[String]("name"),
-      developerToken = dbo.as[String]("developerToken"),
-      oAuthClientId = dbo.as[String]("oAuthClientId"),
-      oAuthClientSecret = dbo.as[String]("oAuthClientSecret"),
-      oAuthRefreshToken = dbo.as[String]("oAuthRefreshToken")
+      _id = Option(doc.getObjectId("_id")),
+      name = doc.getString("name"),
+      developerToken = doc.getString("developerToken"),
+      oAuthClientId = doc.getString("oAuthClientId"),
+      oAuthClientSecret = doc.getString("oAuthClientSecret"),
+      oAuthRefreshToken = doc.getString("oAuthRefreshToken")
     )
   }
 
-  case class Mcc (
+  case class Mcc(
     _id: Option[ObjectId],
-    var name: String,
-    var developerToken: String,
-    var oAuthClientId: String,
-    var oAuthClientSecret: String,
-    var oAuthRefreshToken: String
+    name: String,
+    developerToken: String,
+    oAuthClientId: String,
+    oAuthClientSecret: String,
+    oAuthRefreshToken: String
   )
 }

@@ -1,10 +1,13 @@
 package models.mongodb
 
-import Shared.Shared._
 import be.objectify.deadbolt.scala.models.{Permission, Role}
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
 import enumeratum._
 import org.bson.types.ObjectId
+import models.mongodb.MongoExtensions._
+
+import scala.jdk.CollectionConverters._
 
 sealed trait PermissionGroup extends EnumEntry with Permission {
   def value: String = {
@@ -15,7 +18,7 @@ sealed trait PermissionGroup extends EnumEntry with Permission {
 object PermissionGroup extends Enum[PermissionGroup] with PlayJsonEnum[PermissionGroup] {
 
   val values = findValues
-  
+
   case object Administrator extends PermissionGroup
   case object Advertiser extends PermissionGroup
 
@@ -27,10 +30,6 @@ object PermissionGroup extends Enum[PermissionGroup] with PlayJsonEnum[Permissio
   case object GoogleWrite extends PermissionGroup
   case object GoogleCharts extends PermissionGroup
 
-  case object YahooRead extends PermissionGroup
-  case object YahooWrite extends PermissionGroup
-  case object YahooCharts extends PermissionGroup
-
   case object FacebookRead extends PermissionGroup
   case object FacebookWrite extends PermissionGroup
   case object FacebookCharts extends PermissionGroup
@@ -40,37 +39,37 @@ object PermissionGroup extends Enum[PermissionGroup] with PlayJsonEnum[Permissio
   case object LynxCharts extends PermissionGroup
 }
 
-case class SecurityRole(_id: Option[ObjectId], var roleName: String, var permissions: Array[PermissionGroup]) extends Role {
-  def getName = this.roleName
-  def getValue = this.permissions.mkString(",")
-
+case class SecurityRole(_id: Option[ObjectId], roleName: String, permissions: Array[PermissionGroup]) extends Role {
   override def name: String = this.roleName
 }
 
 object SecurityRole {
-  def securityRoleCollection = advancedCollection("security_role")
-  def securityRoleToDbo(securityRole: SecurityRole): DBObject = {
-    DBObject(
+  // Initialized by StartupTasks from MongoService
+  var securityRoleCollection: MongoCollection[Document] = _
+
+  def securityRoleToDocument(securityRole: SecurityRole): Document = {
+    Document(
       "_id" -> Some(securityRole._id),
-      "permissions" -> securityRole.permissions.map(_.toString),
+      "permissions" -> securityRole.permissions.map(_.toString).toList,
       "roleName" -> securityRole.roleName
     )
   }
 
-  def dboToSecurityRole(dbo: DBObject) = SecurityRole(
-    _id=dbo._id,
-    roleName=dbo.getAs[String]("roleName").get,
-    permissions=dbo.getAsOrElse[List[String]]("permissions", List()).map(x => PermissionGroup.withName(x)).toArray
+  def documentToSecurityRole(doc: Document) = SecurityRole(
+    _id = Option(doc.getObjectId("_id")),
+    roleName = doc.getString("roleName"),
+    permissions = Option(doc.getList("permissions", classOf[String]))
+      .map(_.asScala.toList).getOrElse(List()).map(x => PermissionGroup.withName(x)).toArray
   )
-  
+
   def isAdministrator(securityRole: SecurityRole): Boolean = {
     securityRole.permissions.contains(PermissionGroup.Administrator)
   }
-  
+
   def isAdvertiser(securityRole: SecurityRole): Boolean = {
     securityRole.permissions.contains(PermissionGroup.Advertiser)
   }
-  
+
   def hasPermission(securityRole: SecurityRole, permission: PermissionGroup): Boolean = {
     securityRole.permissions.contains(permission)
   }

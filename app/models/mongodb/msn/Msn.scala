@@ -1,36 +1,39 @@
 package models.mongodb.msn
 
-import Shared.Shared._
-import com.mongodb.casbah.Imports._
-import com.mongodb.util.JSON
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import org.bson.types.ObjectId
+import models.mongodb.MongoExtensions._
 
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.ClassTag
 
 object Msn {
-  def msnApiAccountCollection = advancedCollection("msn_api_account")
-  def msnCustomerCollection = advancedCollection("msn_customer")
-  def msnAccountInfoCollection = advancedCollection("msn_account")
-  def msnCampaignCollection = advancedCollection("msn_campaign")
-  def msnAdGroupCollection = advancedCollection("msn_adgroup")
-  def msnSitePlacementCollection = advancedCollection("msn_site_placement")
-  def msnReportCollection(
-    reportType: MsnReportType.Value
-  ) = advancedCollection(
-    "Msn%s".format(reportType)
-  )
+  // Initialized by StartupTasks from MongoService
+  var msnCustomerCollection: MongoCollection[Document] = _
+  var msnReportCollection: MongoCollection[Document] = _
+  var msnAccountInfoCollection: MongoCollection[Document] = _
+  var msnApiAccountCollection: MongoCollection[Document] = _
+  var msnCampaignCollection: MongoCollection[Document] = _
+  var msnAdGroupCollection: MongoCollection[Document] = _
 
-  def dboToMsnEntity[T: ClassTag](dbo: DBObject, listKey: String, objectKey: Option[String]): T = {
-    gson.fromJson(
-      JSON.serialize(
-        objectKey match {
-          case Some(key) =>
-            dbo.as[MongoDBList](listKey).asInstanceOf[DBObject].as[DBObject]("object").expand[DBObject](key)
-          case None =>
-            dbo.as[MongoDBList](listKey).asInstanceOf[DBObject].as[DBObject]("object")
-        }
-      ),
-      classTag[T].runtimeClass.asInstanceOf[Class[T]]
-    )
+  private val mapper = new com.fasterxml.jackson.databind.ObjectMapper()
+
+  /**
+   * Deserialize a stored MSN entity from a MongoDB document.
+   * The data was originally stored using Jackson serialization, so we use
+   * Jackson to deserialize it back to the typed entity.
+   */
+  def documentToMsnEntity[T: ClassTag](doc: Document, listKey: String, objectKey: Option[String]): T = {
+    val json = objectKey match {
+      case Some(key) =>
+        val listDoc = Option(doc.toBsonDocument.get(listKey)).map(v => Document(v.asDocument())).get
+        val objectDoc = Option(listDoc.toBsonDocument.get("object")).map(v => Document(v.asDocument())).get
+        Option(objectDoc.toBsonDocument.get(key)).map(v => Document(v.asDocument())).get.toJson()
+      case None =>
+        val listDoc = Option(doc.toBsonDocument.get(listKey)).map(v => Document(v.asDocument())).get
+        Option(listDoc.toBsonDocument.get("object")).map(v => Document(v.asDocument())).get.toJson()
+    }
+    mapper.readValue(json, implicitly[ClassTag[T]].runtimeClass.asInstanceOf[Class[T]])
   }
 
   case class ApiAccount(
@@ -41,7 +44,7 @@ object Msn {
     developerToken: String
   )
 
-  def apiAccountToDbo(aa: ApiAccount) = DBObject(
+  def apiAccountToDocument(aa: ApiAccount) = Document(
     "_id" -> aa._id,
     "name" -> aa.name,
     "userName" -> aa.userName,
@@ -49,12 +52,11 @@ object Msn {
     "developerToken" -> aa.developerToken
   )
 
-
-  def dboToApiAccount(dbo: DBObject) = ApiAccount(
-    _id=dbo._id,
-    name=dbo.getAsOrElse[String]("name", ""),
-    userName=dbo.getAsOrElse[String]("userName", ""),
-    password=dbo.getAsOrElse[String]("password", ""),
-    developerToken=dbo.getAsOrElse[String]("developerToken", "")
+  def documentToApiAccount(doc: Document) = ApiAccount(
+    _id = Option(doc.getObjectId("_id")),
+    name = Option(doc.getString("name")).getOrElse(""),
+    userName = Option(doc.getString("userName")).getOrElse(""),
+    password = Option(doc.getString("password")).getOrElse(""),
+    developerToken = Option(doc.getString("developerToken")).getOrElse("")
   )
 }

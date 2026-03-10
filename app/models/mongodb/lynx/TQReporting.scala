@@ -1,18 +1,22 @@
 package models.mongodb.lynx
 
 import Shared.Shared._
-import com.mongodb.casbah.Imports._
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import models.mysql._
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
 
 object TQReporting {
-  val dtf: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd")
-  def arrivalFactCollection = advancedCollection("tq_reporting_arrival_facts")
+  // Initialized by StartupTasks from MongoService
+  var arrivalFactCollection: MongoCollection[Document] = _
 
-  def arrivalFactToDBObject(arrivalFact: ArrivalFact): DBObject = {
-    DBObject(
+  val dtf: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd")
+
+  def arrivalFactToDocument(arrivalFact: ArrivalFact): Document = {
+    Document(
       "id" -> arrivalFact.id,
       "ab_tests" -> arrivalFact.session.ab_tests,
       "adgroupid" -> arrivalFact.traffic_source.adgroupid,
@@ -130,147 +134,147 @@ object TQReporting {
     )
   }
 
-  def dboToArrivalFact(dbo: DBObject): ArrivalFact =
+  def documentToArrivalFact(doc: Document): ArrivalFact =
     ArrivalFact(
-      id = dbo.as[Option[Long]]("id"),
+      id = Option(doc.getLong("id")),
       traffic_source = ArrivalFactTrafficSource(
-        adgroupid = dbo.as[Option[String]]("adgroupid"),
-        gclid = dbo.as[Option[String]]("gclid"),
-        lp_conv_u = dbo.as[Option[Int]]("lp_conv_u"),
-        keyword = dbo.as[Option[String]]("keyword"),
-        g_network = dbo.as[Option[String]]("g_network"),
-        g_device = dbo.as[Option[String]]("g_device"),
-        g_location = dbo.as[Option[String]]("g_location"),
-        conf = dbo.as[Option[Int]]("conf"),
-        conu = dbo.as[Option[Int]]("conu"),
-        conversion = dbo.as[Option[Int]]("conversion"),
-        conversion_count = dbo.as[Option[Int]]("conversion_count"),
-        conversion_page = dbo.as[Option[String]]("conversion_page"),
-        lp_ctc = dbo.as[Int]("lp_ctc"),
-        u_lp_ctc = dbo.as[Int]("u_lp_ctc"),
-        u_lp_content_engage = dbo.as[Int]("u_lp_content_engage"),
-        utm_source = dbo.as[Option[String]]("utm_source"),
-        utm_campaign = dbo.as[Option[String]]("utm_campaign"),
-        utm_medium = dbo.as[Option[String]]("utm_medium")
+        adgroupid = Option(doc.getString("adgroupid")),
+        gclid = Option(doc.getString("gclid")),
+        lp_conv_u = Option(doc.getInteger("lp_conv_u")),
+        keyword = Option(doc.getString("keyword")),
+        g_network = Option(doc.getString("g_network")),
+        g_device = Option(doc.getString("g_device")),
+        g_location = Option(doc.getString("g_location")),
+        conf = Option(doc.getInteger("conf")),
+        conu = Option(doc.getInteger("conu")),
+        conversion = Option(doc.getInteger("conversion")),
+        conversion_count = Option(doc.getInteger("conversion_count")),
+        conversion_page = Option(doc.getString("conversion_page")),
+        lp_ctc = doc.getInteger("lp_ctc"),
+        u_lp_ctc = doc.getInteger("u_lp_ctc"),
+        u_lp_content_engage = doc.getInteger("u_lp_content_engage"),
+        utm_source = Option(doc.getString("utm_source")),
+        utm_campaign = Option(doc.getString("utm_campaign")),
+        utm_medium = Option(doc.getString("utm_medium"))
       ),
       device = ArrivalFactDevice(
-        device_name = dbo.as[Option[String]]("device_name"),
-        device_type = dbo.as[Option[String]]("device_type"),
-        device_brand = dbo.as[Option[String]]("device_brand"),
-        device_model = dbo.as[Option[String]]("device_model")
+        device_name = Option(doc.getString("device_name")),
+        device_type = Option(doc.getString("device_type")),
+        device_brand = Option(doc.getString("device_brand")),
+        device_model = Option(doc.getString("device_model"))
       ),
       browser = ArrivalFactBrowser(
-        browser = dbo.as[Option[String]]("browser"),
-        browser_id = dbo.as[Option[String]]("browser_id"),
-        browser_version = dbo.as[Option[String]]("browser_version"),
-        arrivals = dbo.as[Int]("arrivals"),
-        bounce = dbo.as[Int]("bounce"),
-        robot_id = dbo.as[Option[String]]("robot_id"),
-        user_agent = dbo.as[Option[String]]("user_agent")
+        browser = Option(doc.getString("browser")),
+        browser_id = Option(doc.getString("browser_id")),
+        browser_version = Option(doc.getString("browser_version")),
+        arrivals = doc.getInteger("arrivals"),
+        bounce = doc.getInteger("bounce"),
+        robot_id = Option(doc.getString("robot_id")),
+        user_agent = Option(doc.getString("user_agent"))
       ),
       session = ArrivalFactSession(
-        session_id = dbo.as[Option[Long]]("session_id"),
-        ip_address = dbo.as[Option[String]]("ip_address"),
-        ip_blacklisted = dbo.as[Option[Int]]("ip_blacklisted"),
-        is_ip_blacklisted = dbo.as[Option[Int]]("is_ip_blacklisted"),
-        maxmind_zip = dbo.as[Option[String]]("maxmind_zip"),
-        name_capture = dbo.as[Int]("name_capture"),
-        new_ip = dbo.as[Int]("new_ip"),
-        new_session = dbo.as[Int]("new_session"),
-        os_name = dbo.as[Option[String]]("os_name"),
-        os_version = dbo.as[Option[String]]("os_version"),
-        ab_tests = dbo.as[Option[String]]("ab_tests"),
-        git_hash = dbo.as[Option[String]]("git_hash"),
-        created_at = strOptToDtOpt(dbo.as[Option[String]]("created_at")),
-        day_of_week = dbo.as[Option[String]]("day_of_week"),
-        duration = dbo.as[Int]("duration"),
-        entry_page = dbo.as[Option[String]]("entry_page"),
-        entry_url = dbo.as[Option[String]]("entry_url"),
-        exit_url = dbo.as[Option[String]]("exit_url"),
-        last_activity = strOptToDtOpt(dbo.as[Option[String]]("last_activity")),
-        local_hour = dbo.as[Option[Int]]("local_hour"),
-        page_views = dbo.as[Option[Int]]("page_views"),
-        revenue = dbo.as[Option[Double]]("revenue")
+        session_id = Option(doc.getLong("session_id")),
+        ip_address = Option(doc.getString("ip_address")),
+        ip_blacklisted = Option(doc.getInteger("ip_blacklisted")),
+        is_ip_blacklisted = Option(doc.getInteger("is_ip_blacklisted")),
+        maxmind_zip = Option(doc.getString("maxmind_zip")),
+        name_capture = doc.getInteger("name_capture"),
+        new_ip = doc.getInteger("new_ip"),
+        new_session = doc.getInteger("new_session"),
+        os_name = Option(doc.getString("os_name")),
+        os_version = Option(doc.getString("os_version")),
+        ab_tests = Option(doc.getString("ab_tests")),
+        git_hash = Option(doc.getString("git_hash")),
+        created_at = strOptToDtOpt(Option(doc.getString("created_at"))),
+        day_of_week = Option(doc.getString("day_of_week")),
+        duration = doc.getInteger("duration"),
+        entry_page = Option(doc.getString("entry_page")),
+        entry_url = Option(doc.getString("entry_url")),
+        exit_url = Option(doc.getString("exit_url")),
+        last_activity = strOptToDtOpt(Option(doc.getString("last_activity"))),
+        local_hour = Option(doc.getInteger("local_hour")),
+        page_views = Option(doc.getInteger("page_views")),
+        revenue = Option(doc.getDouble("revenue"))
       ),
       form = ArrivalFactForm(
-        email = dbo.as[Option[String]]("email"),
-        form_city = dbo.as[Option[String]]("form_city"),
-        form_state = dbo.as[Option[String]]("form_state"),
-        form_zip = dbo.as[Option[String]]("form_zip"),
-        electric_bill = dbo.as[Option[String]]("electric_bill"),
-        prop_own = dbo.as[Option[String]]("prop_own")
+        email = Option(doc.getString("email")),
+        form_city = Option(doc.getString("form_city")),
+        form_state = Option(doc.getString("form_state")),
+        form_zip = Option(doc.getString("form_zip")),
+        electric_bill = Option(doc.getString("electric_bill")),
+        prop_own = Option(doc.getString("prop_own"))
       ),
       event_1 = ArrivalFactEvent1(
-        maxmind_failure_on_page_load = dbo.as[Int]("maxmind_failure_on_page_load"),
-        landing_page_completed = dbo.as[Int]("landing_page_completed"),
-        address_completed = dbo.as[Int]("address_completed"),
-        ownership_completed = dbo.as[Int]("ownership_completed"),
-        power_bill_completed = dbo.as[Int]("power_bill_completed"),
-        power_company_completed = dbo.as[Int]("power_company_completed"),
-        name_completed = dbo.as[Int]("name_completed"),
-        email_completed = dbo.as[Int]("email_completed"),
-        phone_completed = dbo.as[Int]("phone_completed"),
-        email_modal_completed = dbo.as[Int]("email_modal_completed"),
-        credit_score_completed = dbo.as[Int]("credit_score_completed"),
-        creative = dbo.as[Option[String]]("creative"),
-        page_focus = dbo.as[Int]("page_focus"),
-        page_blur = dbo.as[Int]("page_blur"),
-        event_category = dbo.as[Option[String]]("event_category"),
-        events_count = dbo.as[Int]("events_count"),
-        form_step_1 = dbo.as[Int]("form_step_1"),
-        form_step_2 = dbo.as[Int]("form_step_2"),
-        form_step_3 = dbo.as[Int]("form_step_3"),
-        form_step_2b = dbo.as[Int]("form_step_2b"),
-        page_rendered = dbo.as[Int]("page_rendered"),
-        form_step_4 = dbo.as[Int]("form_step_4")
+        maxmind_failure_on_page_load = doc.getInteger("maxmind_failure_on_page_load"),
+        landing_page_completed = doc.getInteger("landing_page_completed"),
+        address_completed = doc.getInteger("address_completed"),
+        ownership_completed = doc.getInteger("ownership_completed"),
+        power_bill_completed = doc.getInteger("power_bill_completed"),
+        power_company_completed = doc.getInteger("power_company_completed"),
+        name_completed = doc.getInteger("name_completed"),
+        email_completed = doc.getInteger("email_completed"),
+        phone_completed = doc.getInteger("phone_completed"),
+        email_modal_completed = doc.getInteger("email_modal_completed"),
+        credit_score_completed = doc.getInteger("credit_score_completed"),
+        creative = Option(doc.getString("creative")),
+        page_focus = doc.getInteger("page_focus"),
+        page_blur = doc.getInteger("page_blur"),
+        event_category = Option(doc.getString("event_category")),
+        events_count = doc.getInteger("events_count"),
+        form_step_1 = doc.getInteger("form_step_1"),
+        form_step_2 = doc.getInteger("form_step_2"),
+        form_step_3 = doc.getInteger("form_step_3"),
+        form_step_2b = doc.getInteger("form_step_2b"),
+        page_rendered = doc.getInteger("page_rendered"),
+        form_step_4 = doc.getInteger("form_step_4")
       ),
       event_2 = ArrivalFactEvent2(
-        form_step_7 = dbo.as[Int]("form_step_7"),
-        form_step_8 = dbo.as[Int]("form_step_8"),
-        lp_content_engage = dbo.as[Int]("lp_content_engage"),
-        form_complete = dbo.as[Int]("form_complete"),
-        page_closed = dbo.as[Int]("page_closed"),
-        page_loaded = dbo.as[Int]("page_loaded"),
-        form_step_5 = dbo.as[Int]("form_step_5"),
-        form_step_6 = dbo.as[Int]("form_step_6")
+        form_step_7 = doc.getInteger("form_step_7"),
+        form_step_8 = doc.getInteger("form_step_8"),
+        lp_content_engage = doc.getInteger("lp_content_engage"),
+        form_complete = doc.getInteger("form_complete"),
+        page_closed = doc.getInteger("page_closed"),
+        page_loaded = doc.getInteger("page_loaded"),
+        form_step_5 = doc.getInteger("form_step_5"),
+        form_step_6 = doc.getInteger("form_step_6")
       ),
       u_event_1 = ArrivalFactUEvent1(
-        u_page_closed = dbo.as[Int]("u_page_closed"),
-        u_page_loaded = dbo.as[Int]("u_page_loaded"),
-        u_form_step_2b = dbo.as[Int]("u_form_step_2b"),
-        u_page_rendered =dbo.as[Int]("u_form_rendered"),
-        u_form_step_1 = dbo.as[Int]("u_form_step_1"),
-        u_form_step_2 = dbo.as[Int]("u_form_step_2"),
-        u_form_step_3 = dbo.as[Int]("u_form_step_3"),
-        u_form_step_4 = dbo.as[Int]("u_form_step_4"),
-        u_form_step_5 = dbo.as[Int]("u_form_step_5"),
-        u_maxmind_failure_on_page_load = dbo.as[Int]("u_maxmind_failure_on_page_load"),
-        u_landing_page_completed = dbo.as[Int]("u_landing_page_completed"),
-        u_address_completed = dbo.as[Int]("u_address_completed"),
-        u_ownership_completed = dbo.as[Int]("u_ownership_completed"),
-        u_power_bill_completed = dbo.as[Int]("u_power_bill_completed"),
-        u_power_company_completed = dbo.as[Int]("u_power_company_completed"),
-        u_name_completed = dbo.as[Int]("u_name_completed"),
-        u_email_completed = dbo.as[Int]("u_email_completed"),
-        u_phone_completed = dbo.as[Int]("u_phone_completed"),
-        u_email_modal_completed = dbo.as[Int]("u_email_modal_completed"),
-        u_credit_score_completed = dbo.as[Int]("u_credit_score_completed"),
-        u_page_focus = dbo.as[Int]("u_page_focus"),
-        u_page_blur = dbo.as[Int]("u_page_blur")
+        u_page_closed = doc.getInteger("u_page_closed"),
+        u_page_loaded = doc.getInteger("u_page_loaded"),
+        u_form_step_2b = doc.getInteger("u_form_step_2b"),
+        u_page_rendered = doc.getInteger("u_form_rendered"),
+        u_form_step_1 = doc.getInteger("u_form_step_1"),
+        u_form_step_2 = doc.getInteger("u_form_step_2"),
+        u_form_step_3 = doc.getInteger("u_form_step_3"),
+        u_form_step_4 = doc.getInteger("u_form_step_4"),
+        u_form_step_5 = doc.getInteger("u_form_step_5"),
+        u_maxmind_failure_on_page_load = doc.getInteger("u_maxmind_failure_on_page_load"),
+        u_landing_page_completed = doc.getInteger("u_landing_page_completed"),
+        u_address_completed = doc.getInteger("u_address_completed"),
+        u_ownership_completed = doc.getInteger("u_ownership_completed"),
+        u_power_bill_completed = doc.getInteger("u_power_bill_completed"),
+        u_power_company_completed = doc.getInteger("u_power_company_completed"),
+        u_name_completed = doc.getInteger("u_name_completed"),
+        u_email_completed = doc.getInteger("u_email_completed"),
+        u_phone_completed = doc.getInteger("u_phone_completed"),
+        u_email_modal_completed = doc.getInteger("u_email_modal_completed"),
+        u_credit_score_completed = doc.getInteger("u_credit_score_completed"),
+        u_page_focus = doc.getInteger("u_page_focus"),
+        u_page_blur = doc.getInteger("u_page_blur")
       ),
       u_event_2 = ArrivalFactUEvent2(
-        u_form_step_6 = dbo.as[Int]("u_form_step_6"),
-        u_form_step_7 = dbo.as[Int]("u_form_step_7"),
-        u_form_step_8 = dbo.as[Int]("u_form_step_8"),
-        u_form_complete = dbo.as[Int]("u_form_complete")
+        u_form_step_6 = doc.getInteger("u_form_step_6"),
+        u_form_step_7 = doc.getInteger("u_form_step_7"),
+        u_form_step_8 = doc.getInteger("u_form_step_8"),
+        u_form_complete = doc.getInteger("u_form_complete")
       )
     )
-    
+
     def dtOptToStrOpt(dtOpt: Option[DateTime]): Option[String] = dtOpt match {
       case Some(dt) => Some(dt.toString(dtf))
       case _ => None
     }
-  
+
     def strOptToDtOpt(strOpt: Option[String]): Option[DateTime] = strOpt match {
       case Some(str) => Some(DateTime.parse(str, dtf))
       case _ => None

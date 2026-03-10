@@ -1,41 +1,39 @@
 package models.mongodb
 
+import java.util.concurrent.ConcurrentHashMap
+import scala.jdk.CollectionConverters._
 import org.joda.time.DateTime
 
 case class SessionSettings (
-   var chartStartDate: DateTime,
-   var chartEndDate: DateTime
+   chartStartDate: DateTime,
+   chartEndDate: DateTime
 )
 
 object SessionSettings {
-  
-  var userSettings: Map[String, SessionSettings] = Map()
-  
+
+  private val userSettings = new ConcurrentHashMap[String, SessionSettings]().asScala
+
   def getSettings(user: UserAccount): SessionSettings = {
-    if(!userSettings.contains(user.userName)){
-      userSettings += (user.userName -> getDefaultSettings)
-    }
-    
-    userSettings(user.userName)
+    userSettings.getOrElseUpdate(user.userName, getDefaultSettings)
   }
-  
-  def setChartStartDate(user: UserAccount, dt: DateTime) = {
-    getSettings(user).chartStartDate = dt
+
+  def setChartStartDate(user: UserAccount, dt: DateTime): Unit = {
+    userSettings.put(user.userName, getSettings(user).copy(chartStartDate = dt))
   }
-  
-  def setChartEndDate(user: UserAccount, dt: DateTime) = {
-    getSettings(user).chartEndDate = dt
+
+  def setChartEndDate(user: UserAccount, dt: DateTime): Unit = {
+    userSettings.put(user.userName, getSettings(user).copy(chartEndDate = dt))
   }
-  
+
   def getDefaultSettings = SessionSettings(
     getDefaultChartStartDate,
     getDefaultChartEndDate
   )
-  
+
   def getDefaultChartStartDate: DateTime = {
     DateTime.now.minusDays(30)
   }
-  
+
   def getDefaultChartEndDate: DateTime = {
     DateTime.now
   }

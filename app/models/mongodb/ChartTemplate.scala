@@ -3,9 +3,11 @@ package models.mongodb
 import util.charts.ChartMetaData
 import Shared.Shared._
 import org.bson.types.ObjectId
-import com.mongodb.casbah.Imports._
-import com.mongodb.util.JSON;
+import org.mongodb.scala._
+import org.mongodb.scala.bson.Document
+import models.mongodb.MongoExtensions._
 import org.joda.time.DateTime
+import play.api.libs.json.{Format, Json}
 
 case class ChartTemplate (
     templateName: String,
@@ -13,18 +15,22 @@ case class ChartTemplate (
     metaData: ChartMetaData
 )
 
-object ChartTemplate{
-  def chartTemplateCollection = advancedCollection("chart_template");
-  def toDbo(template: ChartTemplate): DBObject = DBObject(
+object ChartTemplate {
+  // Initialized by StartupTasks from MongoService
+  var chartTemplateCollection: MongoCollection[Document] = _
+
+  implicit val format: Format[ChartTemplate] = Json.format[ChartTemplate]
+
+  def toDocument(template: ChartTemplate): Document = Document(
     "templateName" -> template.templateName,
     "userName" -> template.userName,
-    "metaData" -> JSON.parse(gson.toJson(template.metaData))
+    "metaData" -> Document(Json.toJson(template.metaData).toString())
   )
-  
-  def fromDbo(dbo: DBObject): ChartTemplate = ChartTemplate(
-    dbo.getAs[String]("templateName").get,
-    dbo.getAs[String]("userName").get,
-    gson.fromJson(dbo.getAs[DBObject]("metaData").get.toString, classOf[ChartMetaData])
+
+  def fromDocument(doc: Document): ChartTemplate = ChartTemplate(
+    doc.getString("templateName"),
+    doc.getString("userName"),
+    Json.parse(Option(doc.toBsonDocument.get("metaData")).map(v => Document(v.asDocument())).get.toJson()).as[ChartMetaData]
   )
-  
+
 }
