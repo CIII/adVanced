@@ -1,15 +1,50 @@
-logs
-project/project
-project/target
-target
-tmp
-.history
-dist
-/.idea
-/*.iml
-/out
-/.idea_modules
-/.classpath
-/.project
+# sbt
+target/
+project/target/
+project/project/
+dist/
+
+# Play Framework
+logs/
+tmp/
 /RUNNING_PID
-/.settings
+
+# IDE - IntelliJ
+.idea/
+*.iml
+.idea_modules/
+out/
+
+# IDE - Eclipse
+.classpath
+.project
+.settings/
+
+# IDE - VS Code
+.vscode/
+
+# IDE - Metals (Scala)
+.metals/
+.bloop/
+metals.sbt
+.bsp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scala
+*.class
+*.log
+
+# sbt plugins
+.history
+
+# Credentials / secrets
+.env
+*.pem
+*.key
+credentials.json
+
+# Node (if any frontend assets)
+node_modules/
